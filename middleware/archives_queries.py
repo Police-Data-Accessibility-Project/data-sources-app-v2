@@ -40,7 +40,7 @@ def archives_get_query(
     conn: Optional[PgConnection] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Processes the archives get results, either from the database or a provided set of test results, and converts dates to strings.
+    Processes the archives get results from the database and converts dates to strings.
 
     :param conn: A psycopg2 connection object to a PostgreSQL database.
     :return: A list of dictionaries with the query results after processing and date conversion.

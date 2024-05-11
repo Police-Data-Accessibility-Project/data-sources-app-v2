@@ -125,7 +125,7 @@ def data_source_by_id_query(
     conn: Optional[PgConnection] = None,
 ) -> Dict[str, Any]:
     """
-    Processes a request to fetch data source details by ID, either from the database or provided test results.
+    Processes a request to fetch data source details by ID from the database
 
     :param data_source_id: The unique identifier for the data source.
     :param conn: A psycopg2 connection object to a PostgreSQL database.
@@ -250,7 +250,7 @@ def data_sources_query(
     for_map: bool = False,
 ) -> List[Dict[str, Any]]:
     """
-    Processes and formats a list of approved data sources, with an option to use test query results.
+    Processes and formats a list of approved data sources
 
     :param approval_status: The approval status of the data sources to query.
     :param conn: Optional psycopg2 connection object to a PostgreSQL database.
