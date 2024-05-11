@@ -25,7 +25,7 @@ class Archives(PsycopgResource):
         """
         try:
             archives_combined_results_clean = archives_get_query(
-                test_query_results=[], conn=self.psycopg2_connection
+                conn=self.psycopg2_connection
             )
 
             return archives_combined_results_clean
