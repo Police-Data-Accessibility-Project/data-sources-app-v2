@@ -3,6 +3,7 @@ from resources.PsycopgResource import PsycopgResource
 from utilities.common import convert_dates_to_strings
 from typing import Dict, Any
 
+from utilities.managed_cursor import managed_cursor
 
 approved_columns = [
     "name",
@@ -48,25 +49,22 @@ class Agencies(PsycopgResource):
         - dict: A dictionary containing the count of returned agencies and their data.
         """
         try:
-            cursor = self.psycopg2_connection.cursor()
             joined_column_names = ", ".join(approved_columns)
             offset = (int(page) - 1) * 1000
-            cursor.execute(
-                f"select {joined_column_names} from agencies where approved = 'TRUE' limit 1000 offset {offset}"
-            )
-            results = cursor.fetchall()
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                cursor.execute(
+                    f"select {joined_column_names} from agencies where approved = 'TRUE' limit 1000 offset {offset}"
+                )
+                results = cursor.fetchall()
             agencies_matches = [
                 dict(zip(approved_columns, result)) for result in results
             ]
-
             for item in agencies_matches:
                 convert_dates_to_strings(item)
-
             agencies = {"count": len(agencies_matches), "data": agencies_matches}
 
             return agencies
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return "There has been an error pulling data!"

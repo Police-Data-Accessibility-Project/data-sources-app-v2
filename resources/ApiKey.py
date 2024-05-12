@@ -5,6 +5,7 @@ import uuid
 from typing import Dict, Any, Optional
 
 from resources.PsycopgResource import PsycopgResource
+from utilities.managed_cursor import managed_cursor
 
 
 class ApiKey(PsycopgResource):
@@ -24,20 +25,20 @@ class ApiKey(PsycopgResource):
             data = request.get_json()
             email = data.get("email")
             password = data.get("password")
-            cursor = self.psycopg2_connection.cursor()
-            user_data = login_results(cursor, email)
 
-            if check_password_hash(user_data["password_digest"], password):
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                user_data = login_results(cursor, email)
+
+                if not check_password_hash(user_data["password_digest"], password):
+                    return
                 api_key = uuid.uuid4().hex
                 user_id = str(user_data["id"])
                 cursor.execute(
                     "UPDATE users SET api_key = %s WHERE id = %s", (api_key, user_id)
                 )
-                payload = {"api_key": api_key}
-                self.psycopg2_connection.commit()
-                return payload
+            payload = {"api_key": api_key}
+            return payload
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return {"message": str(e)}

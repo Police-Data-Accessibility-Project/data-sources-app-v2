@@ -8,6 +8,7 @@ from flask import request
 from typing import Dict, Any
 
 from resources.PsycopgResource import PsycopgResource
+from utilities.managed_cursor import managed_cursor
 
 
 class QuickSearch(PsycopgResource):
@@ -39,15 +40,15 @@ class QuickSearch(PsycopgResource):
             test = False
 
         try:
-            data_sources = quick_search_query(
-                search, location, [], self.psycopg2_connection, test
-            )
-
-            if data_sources["count"] == 0:
-                self.psycopg2_connection = initialize_psycopg2_connection()
+            with managed_cursor(self.psycopg2_connection) as cursor:
                 data_sources = quick_search_query(
-                    search, location, [], self.psycopg2_connection
+                    search, location, [], cursor, test
                 )
+
+                if data_sources["count"] == 0:
+                    data_sources = quick_search_query(
+                        search, location, [], cursor
+                    )
 
             if data_sources["count"] == 0:
                 return {
@@ -61,7 +62,6 @@ class QuickSearch(PsycopgResource):
             }
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             webhook_url = os.getenv("WEBHOOK_URL")
             user_message = "There was an error during the search operation"

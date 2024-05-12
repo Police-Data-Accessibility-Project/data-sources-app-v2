@@ -6,6 +6,7 @@ import json
 from typing import Dict, Any
 
 from resources.PsycopgResource import PsycopgResource
+from utilities.managed_cursor import managed_cursor
 
 
 class Archives(PsycopgResource):
@@ -24,14 +25,15 @@ class Archives(PsycopgResource):
         - Any: The cleaned results of archives combined from the database query, or an error message if an exception occurs.
         """
         try:
-            archives_combined_results_clean = archives_get_query(
-                test_query_results=[], conn=self.psycopg2_connection
-            )
+
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                archives_combined_results_clean = archives_get_query(
+                    test_query_results=[], cursor=cursor
+                )
 
             return archives_combined_results_clean
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return "There has been an error pulling data!"
 
@@ -56,16 +58,16 @@ class Archives(PsycopgResource):
             )
             last_cached = data["last_cached"] if "last_cached" in data else None
 
-            archives_put_query(
-                id=id,
-                broken_as_of=broken_as_of,
-                last_cached=last_cached,
-                conn=self.psycopg2_connection,
-            )
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                archives_put_query(
+                    id=id,
+                    broken_as_of=broken_as_of,
+                    last_cached=last_cached,
+                    cursor=cursor
+                )
 
             return {"status": "success"}
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return {"error": str(e)}

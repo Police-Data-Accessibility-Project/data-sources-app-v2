@@ -1,9 +1,9 @@
+import psycopg2
 import spacy
 import json
 import datetime
 from utilities.common import convert_dates_to_strings, format_arrays
 from typing import List, Dict, Any, Optional
-from psycopg2.extensions import connection as PgConnection, cursor as PgCursor
 
 QUICK_SEARCH_COLUMNS = [
     "airtable_uid",
@@ -56,7 +56,7 @@ INSERT_LOG_QUERY = "INSERT INTO quick_search_query_logs (search, location, resul
 
 
 def unaltered_search_query(
-    cursor: PgCursor, search: str, location: str
+    cursor: psycopg2.extensions.cursor, search: str, location: str
 ) -> List[Dict[str, Any]]:
     """
     Executes the quick search SQL query with unaltered search and location terms.
@@ -74,12 +74,12 @@ def unaltered_search_query(
 
 
 def spacy_search_query(
-    cursor: PgCursor, search: str, location: str
+    cursor: psycopg2.extensions.cursor, search: str, location: str
 ) -> List[Dict[str, Any]]:
     """
     Executes the quick search SQL query with depluralized (lemmatized) search and location terms using spaCy.
 
-    :param cursor: A cursor object from a psycopg2 connection.
+    :param cursor: A psycopg2 cursor object to a PostgreSQL database.
     :param search: The search term entered by the user.
     :param location: The location term entered by the user.
     :return: A list of dictionaries representing the search results.
@@ -106,7 +106,7 @@ def quick_search_query(
     search: str = "",
     location: str = "",
     test_query_results: Optional[List[Dict[str, Any]]] = None,
-    conn: Optional[PgConnection] = None,
+    cursor: psycopg2.extensions.cursor = None,
     test: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -115,19 +115,13 @@ def quick_search_query(
     :param search: The search term.
     :param location: The location term.
     :param test_query_results: Predefined results for testing purposes.
-    :param conn: A psycopg2 connection to the database.
+    :param cursor: A psycopg2 cursor object to a PostgreSQL database.
     :param test: Flag indicating whether the function is being called in a test context.
     :return: A dictionary with the count of results and the data itself.
     """
-    data_sources = {"count": 0, "data": []}
-    if type(conn) == dict and "data" in conn:
-        return data_sources
 
     search = "" if search == "all" else search.replace("'", "")
     location = "" if location == "all" else location.replace("'", "")
-
-    if conn:
-        cursor = conn.cursor()
 
     unaltered_results = (
         unaltered_search_query(cursor, search, location)
@@ -171,7 +165,5 @@ def quick_search_query(
                 search, location, query_results, data_sources["count"], datetime_string
             ),
         )
-        conn.commit()
-        cursor.close()
 
     return data_sources

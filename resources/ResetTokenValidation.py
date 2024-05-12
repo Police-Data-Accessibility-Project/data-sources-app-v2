@@ -5,6 +5,7 @@ from middleware.reset_token_queries import (
 from datetime import datetime as dt
 
 from resources.PsycopgResource import PsycopgResource
+from utilities.managed_cursor import managed_cursor
 
 
 class ResetTokenValidation(PsycopgResource):
@@ -13,8 +14,8 @@ class ResetTokenValidation(PsycopgResource):
         try:
             data = request.get_json()
             token = data.get("token")
-            cursor = self.psycopg2_connection.cursor()
-            token_data = check_reset_token(cursor, token)
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                token_data = check_reset_token(cursor, token)
             if "create_date" not in token_data:
                 return {"message": "The submitted token is invalid"}, 400
 
@@ -27,6 +28,5 @@ class ResetTokenValidation(PsycopgResource):
             return {"message": "Token is valid"}
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return {"message": str(e)}, 500

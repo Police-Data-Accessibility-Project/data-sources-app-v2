@@ -7,6 +7,7 @@ import uuid
 from typing import Dict, Any, Tuple
 
 from resources.PsycopgResource import PsycopgResource
+from utilities.managed_cursor import managed_cursor
 
 
 class DataSourceById(PsycopgResource):
@@ -27,9 +28,10 @@ class DataSourceById(PsycopgResource):
         - Tuple containing the response message with data source details if found, and the HTTP status code.
         """
         try:
-            data_source_details = data_source_by_id_query(
-                conn=self.psycopg2_connection, data_source_id=data_source_id
-            )
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                data_source_details = data_source_by_id_query(
+                    cursor=cursor, data_source_id=data_source_id
+                )
             if data_source_details:
                 return {
                     "message": "Successfully found data source",
@@ -76,16 +78,14 @@ class DataSourceById(PsycopgResource):
 
             data_to_update = data_to_update[:-2]
 
-            cursor = self.psycopg2_connection.cursor()
-
             sql_query = f"""
             UPDATE data_sources 
             SET {data_to_update}
             WHERE airtable_uid = '{data_source_id}'
             """
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                cursor.execute(sql_query)
 
-            cursor.execute(sql_query)
-            self.psycopg2_connection.commit()
             return {"message": "Data source updated successfully."}
 
         except Exception as e:
@@ -108,9 +108,10 @@ class DataSources(PsycopgResource):
         - A dictionary containing the count of data sources and their details.
         """
         try:
-            data_source_matches = data_sources_query(
-                self.psycopg2_connection, [], "approved"
-            )
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                data_source_matches = data_sources_query(
+                    cursor, [], "approved"
+                )
 
             data_sources = {
                 "count": len(data_source_matches),
@@ -120,7 +121,6 @@ class DataSources(PsycopgResource):
             return data_sources
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return {"message": "There has been an error pulling data!"}, 500
 
@@ -134,7 +134,6 @@ class DataSources(PsycopgResource):
         """
         try:
             data = request.get_json()
-            cursor = self.psycopg2_connection.cursor()
 
             restricted_columns = [
                 "rejection_note",
@@ -163,14 +162,12 @@ class DataSources(PsycopgResource):
             column_values += f"False, '[\"ok\"]', '{now}', '{airtable_uid}'"
 
             sql_query = f"INSERT INTO data_sources ({column_names}) VALUES ({column_values}) RETURNING *"
-
-            cursor.execute(sql_query)
-            self.psycopg2_connection.commit()
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                cursor.execute(sql_query)
 
             return {"message": "Data source added successfully."}
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return {"message": "There has been an error adding the data source"}, 500
 
@@ -180,9 +177,10 @@ class DataSourcesNeedsIdentification(PsycopgResource):
     @api_required
     def get(self):
         try:
-            data_source_matches = data_sources_query(
-                self.psycopg2_connection, [], "needs_identification"
-            )
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                data_source_matches = data_sources_query(
+                    cursor, [], "needs_identification"
+                )
 
             data_sources = {
                 "count": len(data_source_matches),
@@ -192,7 +190,6 @@ class DataSourcesNeedsIdentification(PsycopgResource):
             return data_sources
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return {"message": "There has been an error pulling data!"}, 500
 
@@ -212,9 +209,10 @@ class DataSourcesMap(PsycopgResource):
         - A dictionary containing the count of data sources and their details.
         """
         try:
-            data_source_matches = data_sources_query(
-                self.psycopg2_connection, [], "approved", True
-            )
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                data_source_matches = data_sources_query(
+                    cursor, [], "approved", True
+                )
 
             data_sources = {
                 "count": len(data_source_matches),
@@ -224,6 +222,5 @@ class DataSourcesMap(PsycopgResource):
             return data_sources
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return {"message": "There has been an error pulling data!"}, 500

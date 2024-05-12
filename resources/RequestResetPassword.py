@@ -7,6 +7,7 @@ import requests
 from typing import Dict, Any
 
 from resources.PsycopgResource import PsycopgResource
+from utilities.managed_cursor import managed_cursor
 
 
 class RequestResetPassword(PsycopgResource):
@@ -26,12 +27,11 @@ class RequestResetPassword(PsycopgResource):
         try:
             data = request.get_json()
             email = data.get("email")
-            cursor = self.psycopg2_connection.cursor()
-            user_data = user_check_email(cursor, email)
-            id = user_data["id"]
-            token = uuid.uuid4().hex
-            add_reset_token(cursor, email, token)
-            self.psycopg2_connection.commit()
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                user_data = user_check_email(cursor, email)
+                id = user_data["id"]
+                token = uuid.uuid4().hex
+                add_reset_token(cursor, email, token)
 
             body = f"To reset your password, click the following link: {os.getenv('VITE_VUE_APP_BASE_URL')}/reset-password/{token}"
             r = requests.post(
@@ -51,6 +51,5 @@ class RequestResetPassword(PsycopgResource):
             }
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return {"error": str(e)}, 500

@@ -13,6 +13,7 @@ import json
 from typing import Dict, Any
 
 from resources.PsycopgResource import PsycopgResource
+from utilities.managed_cursor import managed_cursor
 
 sys.path.append("..")
 
@@ -48,14 +49,13 @@ class SearchTokens(PsycopgResource):
             if type(self.psycopg2_connection) == dict:
                 return data_sources
 
-            cursor = self.psycopg2_connection.cursor()
             token = uuid.uuid4().hex
             expiration = datetime.datetime.now() + datetime.timedelta(minutes=5)
-            cursor.execute(
-                f"insert into access_tokens (token, expiration_date) values (%s, %s)",
-                (token, expiration),
-            )
-            self.psycopg2_connection.commit()
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                cursor.execute(
+                    f"insert into access_tokens (token, expiration_date) values (%s, %s)",
+                    (token, expiration),
+                )
 
             if endpoint == "quick-search":
                 try:
@@ -64,14 +64,14 @@ class SearchTokens(PsycopgResource):
                 except:
                     test = False
                 try:
-                    data_sources = quick_search_query(
-                        arg1, arg2, [], self.psycopg2_connection, test
-                    )
+                    with managed_cursor(self.psycopg2_connection) as cursor:
+                        data_sources = quick_search_query(
+                            arg1, arg2, [], cursor, test
+                        )
 
                     return data_sources
 
                 except Exception as e:
-                    self.psycopg2_connection.rollback()
                     print(str(e))
                     webhook_url = os.getenv("WEBHOOK_URL")
                     user_message = "There was an error during the search operation"
@@ -93,7 +93,8 @@ class SearchTokens(PsycopgResource):
 
             elif endpoint == "data-sources":
                 try:
-                    data_source_matches = data_sources_query(self.psycopg2_connection)
+                    with managed_cursor(self.psycopg2_connection) as cursor:
+                        data_source_matches = data_sources_query(cursor)
 
                     data_sources = {
                         "count": len(data_source_matches),
@@ -103,18 +104,17 @@ class SearchTokens(PsycopgResource):
                     return data_sources
 
                 except Exception as e:
-                    self.psycopg2_connection.rollback()
                     print(str(e))
                     return {"message": "There has been an error pulling data!"}, 500
 
             elif endpoint == "data-sources-by-id":
                 try:
-                    data_source_details = data_source_by_id_query(
-                        arg1, [], self.psycopg2_connection
-                    )
+                    with managed_cursor(self.psycopg2_connection) as cursor:
+                        data_source_details = data_source_by_id_query(
+                            arg1, [], cursor
+                        )
                     if data_source_details:
                         return data_source_details
-
                     else:
                         return {"message": "Data source not found."}, 404
 
@@ -124,9 +124,10 @@ class SearchTokens(PsycopgResource):
 
             elif endpoint == "data-sources-map":
                 try:
-                    data_source_details = data_sources_query(
-                        self.psycopg2_connection, [], "approved", True
-                    )
+                    with managed_cursor(self.psycopg2_connection) as cursor:
+                        data_source_details = data_sources_query(
+                            cursor, [], "approved", True
+                        )
                     if data_source_details:
                         data_sources = {
                             "count": len(data_source_details),
@@ -144,6 +145,5 @@ class SearchTokens(PsycopgResource):
                 return {"message": "Unknown endpoint"}, 500
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return {"message": e}, 500

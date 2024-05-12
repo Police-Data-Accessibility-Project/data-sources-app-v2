@@ -5,6 +5,7 @@ from middleware.security import api_required
 from typing import Dict, Any
 
 from resources.PsycopgResource import PsycopgResource
+from utilities.managed_cursor import managed_cursor
 
 
 class User(PsycopgResource):
@@ -26,14 +27,11 @@ class User(PsycopgResource):
             data = request.get_json()
             email = data.get("email")
             password = data.get("password")
-            cursor = self.psycopg2_connection.cursor()
-            user_post_results(cursor, email, password)
-            self.psycopg2_connection.commit()
-
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                user_post_results(cursor, email, password)
             return {"message": "Successfully added user"}
 
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
             return {"message": e}, 500
 
@@ -54,15 +52,11 @@ class User(PsycopgResource):
             email = data.get("email")
             password = data.get("password")
             password_digest = generate_password_hash(password)
-            cursor = self.psycopg2_connection.cursor()
-            cursor.execute(
-                f"update users set password_digest = '{password_digest}' where email = '{email}'"
-            )
-            self.psycopg2_connection.commit()
+            with managed_cursor(self.psycopg2_connection) as cursor:
+                cursor.execute(
+                    f"update users set password_digest = '{password_digest}' where email = '{email}'"
+                )
             return {"message": "Successfully updated password"}
-
         except Exception as e:
-            self.psycopg2_connection.rollback()
             print(str(e))
-            return {"message": e}, 500
             return {"message": e}, 500
