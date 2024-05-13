@@ -81,9 +81,9 @@ QUICK_SEARCH_SQL = """
 """
 
 INSERT_LOG_QUERY = """
-INSERT INTO search_query_logs
-(search, location, results, result_count, created_at, datetime_of_request)
-VALUES (%s, %s, %s, %s, %s, %s)
+    INSERT INTO search_query_logs
+    (search, location, results, result_count, created_at, datetime_of_request)
+    VALUES (%s, %s, %s, %s, %s, %s)
 """
 
 
@@ -92,6 +92,7 @@ class SearchQueryEngine:
     A search query engine to perform SQL queries
     for searching records based on a search term and location.
     """
+
     def __init__(self, connection: PgConnection):
         """
         Setup connection to PostgreSQL database and spacy nlp object
@@ -128,87 +129,82 @@ class SearchQueryEngine:
         """
         print(f"Query parameters: '%{search_terms}%', '%{location}%'")
 
-    def process_search_term(
-        self, coarse_record_types: list[str], lemmatize: bool = False
-    ) -> list[str]:
+    def lemmatize(self, entries: list[str]) -> list[str]:
         """
-
-        :param coarse_record_types: the coarse record types to be processed
-        :param lemmatize: Whether to depluralize (lemmatize) search term
-        :return: The processed search term.
-
+        Lemmatize all entries -- removing inflected forms to better enable searching
+        :param entries: entries to be lemmatized
+        :return: lemmatized results
         """
-        search_terms = []
-        if lemmatize:
-            for coarse_record_type in coarse_record_types:
-                doc = self.nlp(coarse_record_type.strip())
-                search_term = " ".join([token.lemma_ for token in doc])
-                search_terms.append(search_term)
-        return search_terms
+        lemmatized_terms = []
+        for entry in entries:
+            doc = self.nlp(entry.strip())
+            lemmatized_term = " ".join([token.lemma_ for token in doc])
+            lemmatized_terms.append(lemmatized_term)
+        return lemmatized_terms
 
     def search_query(
-        self, coarse_record_types: list[str], location: str, lemmatize: bool = False
+        self, record_types: list[str], location: str
     ) -> List[Dict[str, Any]]:
         """
         Perform a search query based on the given parameters.
 
-        :param coarse_record_types: The coarse record types to search for.
+        :param record_types: The record types to search for.
         :param location: The location to search within.
-        :param lemmatize: Whether to depluralize (lemmatize) the search term
-
         :return: A list of dictionaries,
             where each dictionary represents a search result.
 
         """
-        search_term = self.process_search_term(coarse_record_types, lemmatize)
-        self.print_query_parameters(search_term, location)
-        results = self.execute_query(search_term, location)
+        self.print_query_parameters(record_types, location)
+        results = self.execute_query(record_types, location)
         return results
 
     def quick_search(
         self,
-        coarse_record_type: list[str] = None,
+        coarse_record_types: list[str] = None,
         location: str = "",
-        test: bool = False,
     ) -> Dict[str, Any]:
         """
         Perform a quick search based on the provided parameters.
 
-        :param coarse_record_type: The type of record to search for.
+        :param coarse_record_types: The types of records to search for.
         :param location: The location to search for records in.
         :param test: A flag indicating whether this is a test search.
         :return: A dictionary containing the search results.
         """
-        unaltered_results = self.search_query(
-            coarse_record_type, location, lemmatize=False
+        unaltered_results = self.search_query(coarse_record_types, location)
+        spacy_results = self.search_query(
+            record_types=self.lemmatize(coarse_record_types), location=location
         )
-        spacy_results = self.search_query(coarse_record_type, location, lemmatize=True)
 
-        results = (
-            spacy_results
-            if len(spacy_results) > len(unaltered_results)
-            else unaltered_results
-        )
+        results = max(spacy_results, unaltered_results, key=len)
         data_sources = {"count": len(results), "data": results}
 
-        if not test:
-            self.log_query_results(coarse_record_type, location, data_sources)
+        self.log_query_results(coarse_record_types, location, data_sources)
 
         return data_sources
 
     def log_query_results(
-        self, coarse_record_type: str, location: str, data_sources: Dict[str, Any]
+        self,
+        coarse_record_types: list[str],
+        location: str,
+        data_sources: Dict[str, Any],
     ) -> None:
         datetime_string = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        query_results = json.dumps(data_sources["data"]).replace("'", "")
+        # If both coarse_record_types and location are blank, all results will have been returned
+        if len(coarse_record_types) > 0 or location != "":
+            query_results = [record["airtable_uid"] for record in data_sources["data"]]
+        else:
+            query_results = ['ALL']
         with self.conn.cursor() as cursor:
             cursor.execute(
-                INSERT_LOG_QUERY.format(
-                    coarse_record_type,
+                INSERT_LOG_QUERY,
+                (
+                    coarse_record_types,
                     location,
-                    query_results,
+                    json.dumps(query_results),
                     data_sources["count"],
                     datetime_string,
                 ),
             )
             self.conn.commit()
+
