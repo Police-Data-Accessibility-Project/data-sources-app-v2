@@ -1,7 +1,6 @@
 import psycopg2
 import pytest
 
-from tests.resources.app_test_data import DATA_SOURCES_ID_QUERY_RESULTS
 from middleware.data_source_queries import (
     get_approved_data_sources,
     needs_identification_data_sources,
@@ -15,7 +14,7 @@ from tests.middleware.helper_functions import (
     has_expected_keys,
     get_boolean_dictionary,
 )
-from tests.middleware.fixtures import connection_with_test_data, dev_db_connection
+from tests.fixtures import connection_with_test_data, cursor_with_test_data, dev_db_connection
 
 
 @pytest.fixture
@@ -29,16 +28,16 @@ def inserted_data_sources_found():
 
 
 def test_get_approved_data_sources(
-    connection_with_test_data: psycopg2.extensions.connection,
+    cursor_with_test_data: psycopg2.extensions.cursor,
     inserted_data_sources_found: dict[str, bool],
 ) -> None:
     """
     Test that only one data source -- one set to approved -- is returned by 'get_approved_data_sources
-    :param connection_with_test_data:
+    :param cursor_with_test_data:
     :param inserted_data_sources_found:
     :return:
     """
-    results = get_approved_data_sources(conn=connection_with_test_data)
+    results = get_approved_data_sources(cursor=cursor_with_test_data)
 
     for result in results:
         name = result[0]
@@ -51,16 +50,16 @@ def test_get_approved_data_sources(
 
 
 def test_needs_identification(
-    connection_with_test_data: psycopg2.extensions.connection,
+    cursor_with_test_data: psycopg2.extensions.cursor,
     inserted_data_sources_found: dict[str, bool],
 ) -> None:
     """
     Test only source marked as 'Needs Identification' is returned by 'needs_identification_data_sources'
-    :param connection_with_test_data:
+    :param cursor_with_test_data:
     :param inserted_data_sources_found:
     :return:
     """
-    results = needs_identification_data_sources(conn=connection_with_test_data)
+    results = needs_identification_data_sources(cursor=cursor_with_test_data)
     for result in results:
         name = result[0]
         if name in inserted_data_sources_found:
@@ -72,53 +71,53 @@ def test_needs_identification(
 
 
 def test_data_source_by_id_results(
-    connection_with_test_data: psycopg2.extensions.connection,
+    cursor_with_test_data: psycopg2.extensions.cursor,
 ) -> None:
     """
     Test that data_source_by_id properly returns data for an inserted data source
     -- and does not return one which was not inserted
-    :param connection_with_test_data:
+    :param cursor_with_test_data:
     :return:
     """
     # Insert other data sources as well with different id
     result = data_source_by_id_results(
-        data_source_id="SOURCE_UID_1", conn=connection_with_test_data
+        data_source_id="SOURCE_UID_1", cursor=cursor_with_test_data
     )
     assert result
     # Check that a data source which was not inserted is not pulled
     result = data_source_by_id_results(
-        data_source_id="SOURCE_UID_4", conn=connection_with_test_data
+        data_source_id="SOURCE_UID_4", cursor=cursor_with_test_data
     )
     assert not result
 
 
 def test_data_source_by_id_query(
-    connection_with_test_data: psycopg2.extensions.connection,
+    cursor_with_test_data: psycopg2.extensions.cursor,
 ) -> None:
     """
     Test that data_source_by_id_query properly returns data for an inserted data source
     -- and does not return one which was not inserted
-    :param connection_with_test_data:
+    :param cursor_with_test_data:
     :return:
     """
     result = data_source_by_id_query(
-        data_source_id="SOURCE_UID_1", conn=connection_with_test_data
+        data_source_id="SOURCE_UID_1", cursor=cursor_with_test_data
     )
     assert result["agency_name"] == "Agency A"
 
 
 def test_data_sources_query(
-    connection_with_test_data: psycopg2.extensions.connection,
+    cursor_with_test_data: psycopg2.extensions.cursor,
     inserted_data_sources_found: dict[str, bool],
 ) -> None:
     """
     Test that data sources query properly returns data for an inserted data source
     marked as 'approved', and none others.
-    :param connection_with_test_data:
+    :param cursor_with_test_data:
     :param inserted_data_sources_found:
     :return:
     """
-    results = data_sources_query(connection_with_test_data)
+    results = data_sources_query(cursor_with_test_data)
     # Check that results include expected keys
     assert has_expected_keys(results[0].keys(), DATA_SOURCES_APPROVED_COLUMNS)
     for result in results:
@@ -132,17 +131,17 @@ def test_data_sources_query(
 
 
 def test_get_data_sources_for_map(
-    connection_with_test_data: psycopg2.extensions.connection,
+    cursor_with_test_data: psycopg2.extensions.cursor,
     inserted_data_sources_found: dict[str, bool],
 ) -> None:
     """
     Test that get_data_sources_for_map includes only the expected source
     with the expected lat/lng coordinates
-    :param connection_with_test_data:
+    :param cursor_with_test_data:
     :param inserted_data_sources_found:
     :return:
     """
-    results = get_data_sources_for_map(conn=connection_with_test_data)
+    results = get_data_sources_for_map(cursor=cursor_with_test_data)
     for result in results:
         name = result[1]
         if name == "Source 1":

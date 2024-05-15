@@ -117,7 +117,6 @@ def data_source_by_id_results(
 
     cursor.execute(sql_query)
     result = cursor.fetchone()
-    cursor.close()
 
     return result
 

@@ -2,7 +2,8 @@ import psycopg2
 
 from middleware.user_queries import user_post_results, user_check_email
 from tests.middleware.helper_functions import create_test_user
-from tests.middleware.fixtures import dev_db_connection, db_cursor
+from tests.fixtures import db_cursor, dev_db_connection
+import uuid
 
 
 def test_user_post_query(db_cursor: psycopg2.extensions.cursor) -> None:
@@ -12,12 +13,14 @@ def test_user_post_query(db_cursor: psycopg2.extensions.cursor) -> None:
     :param db_cursor: The database cursor.
     :return: None.
     """
-    user_post_results(db_cursor, "unit_test", "unit_test")
+    test_email = str(uuid.uuid4())
+    test_password = str(uuid.uuid4())
+    user_post_results(db_cursor, email=test_email, password=test_password)
 
-    db_cursor.execute(f"SELECT email FROM users WHERE email = 'unit_test'")
-    email_check = db_cursor.fetchone()[0]
+    db_cursor.execute(f"SELECT email FROM users WHERE email = %s", (test_email,))
+    result = db_cursor.fetchall()
 
-    assert email_check == "unit_test"
+    assert len(result) == 1
 
 
 def test_user_check_email(db_cursor: psycopg2.extensions.cursor) -> None:
@@ -28,6 +31,6 @@ def test_user_check_email(db_cursor: psycopg2.extensions.cursor) -> None:
     :return: None
 
     """
-    user = create_test_user(db_cursor)
+    user = create_test_user(db_cursor, email=str(uuid.uuid4()))
     user_data = user_check_email(db_cursor, user.email)
     assert user_data["id"] == user.id

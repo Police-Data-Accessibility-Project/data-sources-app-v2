@@ -5,7 +5,10 @@ SQL_TEST = """
     INSERT INTO test_table (name) VALUES (%s)
 """
 
+
 class TestException(Exception):
+    pass
+
 
 def test_managed_cursor_rollback(test_db_connection):
     """
@@ -25,9 +28,12 @@ def test_managed_cursor_rollback(test_db_connection):
     cursor.execute("SELECT * FROM test_table WHERE name = '%s'", name)
     result = cursor.fetchall()
     cursor.close()
-    assert (len(result) == 0,
-           "Any transactions should be rolled back when an "
-           "exception is raised in the context of the managed cursor")
+    assert (
+        len(result) == 0,
+        "Any transactions should be rolled back when an "
+        "exception is raised in the context of the managed cursor",
+    )
+
 
 def test_managed_cursors_happy_path(test_db_connection):
     """
@@ -42,6 +48,8 @@ def test_managed_cursors_happy_path(test_db_connection):
     cursor.execute("SELECT * FROM test_table WHERE name = '%s'", name)
     result = cursor.fetchall()
     cursor.close()
-    assert (len(result) == 1,
-           "Any transactions should persist in the absence of an exception "
-           "raised in the context of the managed cursor")
+    assert (
+        len(result) == 1,
+        "Any transactions should persist in the absence of an exception "
+        "raised in the context of the managed cursor",
+    )
