@@ -74,6 +74,21 @@ def connection_with_test_data(
     """
     try:
         insert_test_agencies_and_sources(dev_db_connection.cursor())
-    except psycopg2.errors.UniqueViolation:
+    except:
         dev_db_connection.rollback()
     return dev_db_connection
+
+@pytest.fixture
+def cursor_with_test_data(
+    connection_with_test_data: psycopg2.extensions.connection
+) -> psycopg2.extensions.cursor:
+    cur = connection_with_test_data.cursor()
+
+    # Start a savepoint
+    cur.execute("SAVEPOINT test_savepoint")
+
+    yield cur
+
+    # Rollback to the savepoint to ignore commits within the test
+    cur.execute("ROLLBACK TO SAVEPOINT test_savepoint")
+    cur.close()
