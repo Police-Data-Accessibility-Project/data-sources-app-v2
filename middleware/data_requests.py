@@ -1,5 +1,31 @@
 import psycopg2
 from psycopg2 import sql
+from dataclasses import dataclass
+
+from middleware.database_enums import RecordType, RequestStatus
+from utilities.DBRequestMapper import DBRequestMapper
+
+
+@dataclass
+class RequestInfo(DBRequestMapper):
+    submission_notes: str
+    submitter_contact_info: str
+    submitter_user_id: str
+    agency_described_submitted: str
+    record_type: RecordType
+
+REQUESTS_TABLE = "requests_v2"
+
+@dataclass
+class UpdateableRequestColumns(DBRequestMapper):
+    submission_notes: str
+    submitter_contact_info: str
+    submitter_user_id: str
+    agency_described_submitted: str
+    record_type: RecordType
+    archive_reason: str
+    github_issue_url: str
+    request_status: RequestStatus
 
 
 class DataRequestsManager:
@@ -11,36 +37,28 @@ class DataRequestsManager:
         conn (psycopg2.connect): A psycopg2 connection object to the PostgreSQL database.
     """
 
-    def __init__(self, conn: psycopg2.connect):
-        """
-        Initializes the DataRequestsManager with a psycopg2 connection.
-
-        Parameters:
-            conn (psycopg2.connect): A connection to a PostgreSQL database.
-        """
-        self.conn = conn
-
-    def create_request(self, submission_notes: str, submitter_contact_info: str) -> int:
+    def create_request(
+            self,
+            cursor: psycopg2.extensions.cursor,
+            request_info: RequestInfo
+    ) -> int:
         """
         Creates a new entry in the data_requests table.
 
         Parameters:
-            submission_notes (str): Notes regarding the submission.
-            submitter_contact_info (str): Contact information of the submitter.
+            :param cursor:
+            :param request_info: Information on the request, to be inserted into the data_requests table
 
         Returns:
             int: The id of the newly created record.
         """
-        with self.conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO public.data_requests (submission_notes, submitter_contact_info, date_created)
-                VALUES (%s, %s, NOW()) RETURNING id;
-                """,
-                (submission_notes, submitter_contact_info),
-            )
-            self.conn.commit()
-            return cur.fetchone()[0]
+        insert_query = request_info.create_insert_query(
+            table_name=REQUESTS_TABLE
+        )
+        cursor.execute(
+            insert_query.query, insert_query.values
+        )
+        return cursor.fetchone()[0]
 
     def read_request(self, request_id: int) -> tuple:
         """
@@ -54,27 +72,33 @@ class DataRequestsManager:
         """
         with self.conn.cursor() as cur:
             cur.execute(
-                "SELECT * FROM public.data_requests WHERE id = %s;", (request_id,)
+                f"SELECT * FROM {REQUESTS_TABLE} WHERE id = %s;", (request_id,)
             )
             return cur.fetchone()
 
-    def update_request(self, request_id: int, **kwargs) -> None:
+    def update_request(
+        self,
+        cursor: psycopg2.extensions.cursor,
+        request_id: str,
+        updateable_request_columns: UpdateableRequestColumns,
+    ) -> None:
         """
         Updates specified fields of an existing entry in the data_requests table.
 
         Parameters:
             request_id (int): The ID of the request to update.
             **kwargs: Variable keyword arguments corresponding to column names and their new values.
+            :param request_id:
+            :param cursor:
+            :param updateable_request_columns:
         """
-        with self.conn.cursor() as cur:
-            query = sql.SQL("UPDATE public.data_requests SET {} WHERE id = %s").format(
-                sql.SQL(", ").join(
-                    [sql.SQL("{} = %s").format(sql.Identifier(k)) for k in kwargs]
-                )
-            )
-            params = list(kwargs.values()) + [request_id]
-            cur.execute(query, params)
-            self.conn.commit()
+        update_subquery = updateable_request_columns.create_update_query(
+            table_name=REQUESTS_TABLE,
+            where_column="id",
+            id_value=request_id
+        )
+        cursor.execute(update_subquery.query, update_subquery.values)
+
 
     def delete_request(self, request_id: int) -> int:
         """
@@ -85,6 +109,6 @@ class DataRequestsManager:
         """
         with self.conn.cursor() as cur:
             cur.execute(
-                "DELETE FROM public.data_requests WHERE id = %s;", (request_id,)
+                f"DELETE FROM {REQUESTS_TABLE} WHERE id = %s;", (request_id,)
             )
             self.conn.commit()
