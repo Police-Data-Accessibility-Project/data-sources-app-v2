@@ -5,6 +5,10 @@ from collections import namedtuple
 from typing import Optional
 
 import psycopg2.extensions
+from sqlalchemy.orm import Session
+import secrets
+import string
+from middleware.models import User, RequestV2
 
 TestTokenInsert = namedtuple("TestTokenInsert", ["id", "email", "token"])
 TestUser = namedtuple("TestUser", ["id", "email", "password_hash"])
@@ -126,6 +130,42 @@ def create_test_user(
         email=email,
         password_hash=password_hash,
     )
+
+
+
+
+
+def generate_secure_random_alphanumeric(length: int) -> str:
+    """Generate a secure random sequence of alphanumeric characters.
+
+    Args:
+        length (int): The length of the sequence to generate.
+
+    Returns:
+        str: A secure random alphanumeric sequence of the specified length.
+    """
+    characters = string.ascii_letters + string.digits
+    return "".join(secrets.choice(characters) for _ in range(length))
+
+def create_test_user_sqlalchemy(session: Session) -> User:
+    user = User(
+        email=generate_secure_random_alphanumeric(10),
+        password_digest=generate_secure_random_alphanumeric(10),
+        api_key="api_key_here",
+    )
+    session.add(user)
+    session.commit()
+    return user
+
+def create_test_request_sqlalchemy(session: Session) -> RequestV2:
+    request = RequestV2(
+        submission_notes=generate_secure_random_alphanumeric(20),
+        record_type='Dispatch Recordings',
+        submitter_contact_info=generate_secure_random_alphanumeric(20),
+    )
+    session.add(request)
+    session.commit()
+    return request
 
 
 QuickSearchQueryLogResult = namedtuple(
