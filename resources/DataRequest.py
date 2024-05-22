@@ -1,12 +1,10 @@
 from flask import request
 from flask_restful import Resource
-from middleware.models import db
-from middleware.data_requests import RequestInfo
+from middleware.models import db, RequestV2
 from middleware.security import api_required
 from resources.PsycopgResource import handle_exceptions
 from utilities.common import str_to_enum
 from middleware.database_enums import RecordType
-
 
 
 class DataRequest(Resource):
@@ -23,12 +21,12 @@ class DataRequest(Resource):
         Expects 'submission_notes' and 'submitter_contact_info' in the request body.
         """
         data = request.json
-        request_info = RequestInfo(
+        request_info = RequestV2(
             submission_notes=data.get("submission_notes"),
             submitter_contact_info=data.get("submitter_contact_info"),
             submitter_user_id=data.get("submitter_user_id"),
             agency_described_submitted=data.get("agency_described_submitted"),
-            record_type=str_to_enum(RecordType, data.get("record_type")),
+            record_type=data.get("record_type"),
         )
         db.session.add(request_info)
         db.session.commit()
@@ -41,9 +39,9 @@ class DataRequest(Resource):
         Retrieves a data request by ID.
         """
         request_id = request.json["request_id"]
-        request_info = RequestInfo.query.get(request_id)
+        request_info = db.session.get(RequestV2, request_id)
         if request_info:
-            return {"data": request_info.__dict__}, 200
+            return {"data": request_info.to_dict()}, 200
         else:
             return {"message": "Data request not found"}, 404
 
@@ -85,7 +83,7 @@ class DataRequest(Resource):
         Deletes a data request by ID.
         """
         request_id = request.json["request_id"]
-        request_info = RequestInfo.query.get(request_id)
+        request_info = db.session.get(RequestV2, request_id)
         if request_info:
             db.session.delete(request_info)
             db.session.commit()
