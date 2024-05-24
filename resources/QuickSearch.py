@@ -41,14 +41,10 @@ class QuickSearch(PsycopgResource):
 
         try:
             with managed_cursor(self.psycopg2_connection) as cursor:
-                data_sources = quick_search_query(
-                    search, location, [], cursor, test
-                )
+                data_sources = quick_search_query(search, location, [], cursor, test)
 
                 if data_sources["count"] == 0:
-                    data_sources = quick_search_query(
-                        search, location, [], cursor
-                    )
+                    data_sources = quick_search_query(search, location, [], cursor)
 
             if data_sources["count"] == 0:
                 return {

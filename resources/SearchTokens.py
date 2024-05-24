@@ -65,9 +65,7 @@ class SearchTokens(PsycopgResource):
                     test = False
                 try:
                     with managed_cursor(self.psycopg2_connection) as cursor:
-                        data_sources = quick_search_query(
-                            arg1, arg2, [], cursor, test
-                        )
+                        data_sources = quick_search_query(arg1, arg2, [], cursor, test)
 
                     return data_sources
 
@@ -110,9 +108,7 @@ class SearchTokens(PsycopgResource):
             elif endpoint == "data-sources-by-id":
                 try:
                     with managed_cursor(self.psycopg2_connection) as cursor:
-                        data_source_details = data_source_by_id_query(
-                            arg1, [], cursor
-                        )
+                        data_source_details = data_source_by_id_query(arg1, [], cursor)
                     if data_source_details:
                         return data_source_details
                     else:

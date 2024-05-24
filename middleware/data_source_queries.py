@@ -124,7 +124,7 @@ def data_source_by_id_results(
 def data_source_by_id_query(
     data_source_id: str = "",
     test_query_results: Optional[List[Dict[str, Any]]] = None,
-    cursor: psycopg2.extensions.cursor = None
+    cursor: psycopg2.extensions.cursor = None,
 ) -> Dict[str, Any]:
     """
     Processes a request to fetch data source details by ID, either from the database or provided test results.
@@ -156,7 +156,9 @@ def data_source_by_id_query(
     return data_source_details
 
 
-def get_approved_data_sources(cursor: psycopg2.extensions.cursor) -> list[tuple[Any, ...]]:
+def get_approved_data_sources(
+    cursor: psycopg2.extensions.cursor,
+) -> list[tuple[Any, ...]]:
     """
     Fetches all approved data sources and their related agency information from a PostgreSQL database.
 

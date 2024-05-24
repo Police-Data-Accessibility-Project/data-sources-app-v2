@@ -63,7 +63,7 @@ class Archives(PsycopgResource):
                     id=id,
                     broken_as_of=broken_as_of,
                     last_cached=last_cached,
-                    cursor=cursor
+                    cursor=cursor,
                 )
 
             return {"status": "success"}

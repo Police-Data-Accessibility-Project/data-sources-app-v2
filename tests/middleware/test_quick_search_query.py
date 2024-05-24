@@ -10,7 +10,9 @@ from tests.middleware.helper_functions import (
     get_most_recent_quick_search_query_log,
 )
 from tests.fixtures import (
-    connection_with_test_data, cursor_with_test_data, dev_db_connection
+    connection_with_test_data,
+    cursor_with_test_data,
+    dev_db_connection,
 )
 
 
@@ -50,7 +52,9 @@ def test_quick_search_query_logging(
     )
 
     # Test that query inserted into log
-    result = get_most_recent_quick_search_query_log(cursor_with_test_data, "Source 1", "City A")
+    result = get_most_recent_quick_search_query_log(
+        cursor_with_test_data, "Source 1", "City A"
+    )
     assert result.result_count == 1
     assert result.updated_at >= test_datetime
 

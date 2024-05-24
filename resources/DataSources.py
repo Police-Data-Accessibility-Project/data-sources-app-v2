@@ -109,9 +109,7 @@ class DataSources(PsycopgResource):
         """
         try:
             with managed_cursor(self.psycopg2_connection) as cursor:
-                data_source_matches = data_sources_query(
-                    cursor, [], "approved"
-                )
+                data_source_matches = data_sources_query(cursor, [], "approved")
 
             data_sources = {
                 "count": len(data_source_matches),
@@ -210,9 +208,7 @@ class DataSourcesMap(PsycopgResource):
         """
         try:
             with managed_cursor(self.psycopg2_connection) as cursor:
-                data_source_matches = data_sources_query(
-                    cursor, [], "approved", True
-                )
+                data_source_matches = data_sources_query(cursor, [], "approved", True)
 
             data_sources = {
                 "count": len(data_source_matches),

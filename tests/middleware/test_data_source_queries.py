@@ -14,7 +14,11 @@ from tests.middleware.helper_functions import (
     has_expected_keys,
     get_boolean_dictionary,
 )
-from tests.fixtures import connection_with_test_data, cursor_with_test_data, dev_db_connection
+from tests.fixtures import (
+    connection_with_test_data,
+    cursor_with_test_data,
+    dev_db_connection,
+)
 
 
 @pytest.fixture

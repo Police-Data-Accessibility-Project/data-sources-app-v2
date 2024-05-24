@@ -12,7 +12,7 @@ from tests.fixtures import (
     dev_db_connection,
     db_cursor,
     connection_with_test_data,
-    cursor_with_test_data
+    cursor_with_test_data,
 )
 
 

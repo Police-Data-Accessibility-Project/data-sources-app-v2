@@ -3,6 +3,7 @@ from typing import Iterator
 
 import psycopg2
 
+
 @contextmanager
 def managed_cursor(
     connection: psycopg2.extensions.connection,

@@ -27,7 +27,7 @@ class Login(PsycopgResource):
                 user_data = login_results(cursor, email)
 
                 if "password_digest" not in user_data or not check_password_hash(
-                        user_data["password_digest"], password
+                    user_data["password_digest"], password
                 ):
                     return {"message": "Invalid email or password"}, 401
 

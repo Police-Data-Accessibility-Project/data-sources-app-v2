@@ -78,9 +78,10 @@ def connection_with_test_data(
         dev_db_connection.rollback()
     return dev_db_connection
 
+
 @pytest.fixture
 def cursor_with_test_data(
-    connection_with_test_data: psycopg2.extensions.connection
+    connection_with_test_data: psycopg2.extensions.connection,
 ) -> psycopg2.extensions.cursor:
     cur = connection_with_test_data.cursor()
 
