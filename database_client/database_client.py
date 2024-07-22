@@ -2,12 +2,15 @@ import json
 from collections import namedtuple
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Tuple
 import uuid
 
 import psycopg2
 from psycopg2 import sql
+from psycopg2.extras import DictRow
 
+from database_client.constants import DATA_SOURCES_APPROVED_COLUMNS
+from database_client.parameter_objects import AgencyDataSourceParams
 from database_client.dynamic_query_constructor import DynamicQueryConstructor
 from middleware.custom_exceptions import (
     UserNotFoundError,
@@ -16,49 +19,31 @@ from middleware.custom_exceptions import (
 )
 from utilities.enums import RecordCategories
 
-DATA_SOURCES_MAP_COLUMN = [
-    "data_source_id",
-    "name",
-    "agency_id",
-    "agency_name",
-    "state_iso",
-    "municipality",
-    "county_name",
-    "record_type",
-    "lat",
-    "lng",
-]
-
-
 QUICK_SEARCH_SQL = """
     SELECT
-        data_sources.airtable_uid,
-        data_sources.name AS data_source_name,
-        data_sources.description,
-        data_sources.record_type,
-        data_sources.source_url,
-        data_sources.record_format,
-        data_sources.coverage_start,
-        data_sources.coverage_end,
-        data_sources.agency_supplied,
-        agencies.name AS agency_name,
-        agencies.municipality,
-        agencies.state_iso
+        adsv.data_source_id as airtable_uid,
+        adsv.data_source_name,
+        adsv.description,
+        adsv.record_type,
+        adsv.source_url,
+        adsv.record_format,
+        adsv.coverage_start,
+        adsv.coverage_end,
+        adsv.agency_supplied,
+        adsv.agency_name,
+        adsv.municipality,
+        adsv.state_iso
     FROM
-        agency_source_link
+        agency_data_source_view adsv
     INNER JOIN
-        data_sources ON agency_source_link.airtable_uid = data_sources.airtable_uid
-    INNER JOIN
-        agencies ON agency_source_link.agency_described_linked_uid = agencies.airtable_uid
-    INNER JOIN
-        state_names ON agencies.state_iso = state_names.state_iso
+        state_names ON adsv.state_iso = state_names.state_iso
     WHERE
-        (data_sources.name ILIKE '%{0}%' OR data_sources.description ILIKE '%{0}%' OR data_sources.record_type ILIKE '%{0}%' OR data_sources.tags ILIKE '%{0}%') 
-        AND (agencies.county_name ILIKE '%{1}%' OR substr(agencies.county_name,3,length(agencies.county_name)-4) || ' County' ILIKE '%{1}%' 
-            OR agencies.state_iso ILIKE '%{1}%' OR agencies.municipality ILIKE '%{1}%' OR agencies.agency_type ILIKE '%{1}%' OR agencies.jurisdiction_type ILIKE '%{1}%' 
-            OR agencies.name ILIKE '%{1}%' OR state_names.state_name ILIKE '%{1}%')
-        AND data_sources.approval_status = 'approved'
-        AND data_sources.url_status not in ('broken', 'none found')
+        (adsv.data_source_name ILIKE '%{0}%' OR adsv.description ILIKE '%{0}%' OR adsv.record_type ILIKE '%{0}%' OR adsv.tags ILIKE '%{0}%') 
+        AND (adsv.county_name ILIKE '%{1}%' OR substr(adsv.county_name,3,length(adsv.county_name)-4) || ' County' ILIKE '%{1}%' 
+            OR adsv.state_iso ILIKE '%{1}%' OR adsv.municipality ILIKE '%{1}%' OR adsv.agency_type ILIKE '%{1}%' OR adsv.jurisdiction_type ILIKE '%{1}%' 
+            OR adsv.agency_name ILIKE '%{1}%' OR state_names.state_name ILIKE '%{1}%')
+        AND adsv.approval_status = 'approved'
+        AND adsv.url_status not in ('broken', 'none found')
 
 """
 
@@ -219,37 +204,32 @@ class DatabaseClient:
 
         self.cursor.execute(query)
 
+    # region Data Source Queries
     def get_data_source_by_id(self, data_source_id: str) -> Optional[tuple[Any, ...]]:
         """
         Get a data source by its ID, including related agency information from the database.
         :param data_source_id: The unique identifier for the data source.
         :return: A dictionary containing the data source and its related agency details. None if not found.
         """
-        sql_query = DynamicQueryConstructor.build_data_source_by_id_results_query()
-        self.cursor.execute(
-            sql_query,
-            (data_source_id,),
+        params = AgencyDataSourceParams(
+            data_source_id=data_source_id, approval_status=None
         )
-        result = self.cursor.fetchone()
-        # NOTE: Very big tuple, perhaps very long NamedTuple to be implemented later
-        return result
+        return self.get_agencies_data_sources(params)[0]
 
-    def get_approved_data_sources(self) -> list[tuple[Any, ...]]:
+    def get_approved_data_sources(self) -> list[DictRow]:
         """
         Fetches all approved data sources and their related agency information from the database.
 
         :param columns: List of column names to use in the SELECT statement.
         :return: A list of tuples, each containing details of a data source and its related agency.
         """
+        params = AgencyDataSourceParams(
+            include_columns=DATA_SOURCES_APPROVED_COLUMNS + ["agency_name"],
+            approval_status="approved",
+        )
+        return self.get_agencies_data_sources(params)
 
-        sql_query = DynamicQueryConstructor.build_get_approved_data_sources_query()
-
-        self.cursor.execute(sql_query)
-        results = self.cursor.fetchall()
-        # NOTE: Very big tuple, perhaps very long NamedTuple to be implemented later
-        return results
-
-    def get_needs_identification_data_sources(self) -> list[tuple[Any, ...]]:
+    def get_needs_identification_data_sources(self) -> list[DictRow]:
         """
         Returns a list of data sources that need identification from the database.
 
@@ -261,6 +241,28 @@ class DatabaseClient:
         )
         self.cursor.execute(sql_query)
         return self.cursor.fetchall()
+
+    def get_data_sources_for_map(self) -> list[DictRow]:
+        """
+        Returns a list of data sources with relevant info for the map from the database.
+
+        :return: A list of MapInfo namedtuples, each containing details of a data source.
+        """
+        params = AgencyDataSourceParams(
+            include_columns=[
+                "data_source_id",
+                "data_source_name",
+                "agency_id",
+                "agency_name",
+                "state_iso",
+                "municipality",
+                "county_name",
+                "record_type",
+                "lat",
+                "lng",
+            ],
+        )
+        return self.get_agencies_data_sources(params)
 
     def add_new_data_source(self, data: dict) -> None:
         """
@@ -283,53 +285,21 @@ class DatabaseClient:
         )
         self.cursor.execute(sql_query)
 
-    MapInfo = namedtuple(
-        "MapInfo",
-        [
-            "data_source_id",
-            "data_source_name",
-            "agency_id",
-            "agency_name",
-            "state",
-            "municipality",
-            "county",
-            "record_type",
-            "lat",
-            "lng",
-        ],
-    )
+    def get_agencies_data_sources(
+        self,
+        params: AgencyDataSourceParams,
+    ) -> list[DictRow]:
+        """
+        Fetches all data sources and their related agency information from the database.
 
-    def get_data_sources_for_map(self) -> list[MapInfo]:
+        :param columns: List of column names to use in the SELECT statement.
+        :return: A list of tuples, each containing details of a data source and its related agency.
         """
-        Returns a list of data sources with relevant info for the map from the database.
-
-        :return: A list of MapInfo namedtuples, each containing details of a data source.
-        """
-        sql_query = """
-            SELECT
-                data_sources.airtable_uid as data_source_id,
-                data_sources.name,
-                agencies.airtable_uid as agency_id,
-                agencies.submitted_name as agency_name,
-                agencies.state_iso,
-                agencies.municipality,
-                agencies.county_name,
-                data_sources.record_type,
-                agencies.lat,
-                agencies.lng
-            FROM
-                agency_source_link
-            INNER JOIN
-                data_sources ON agency_source_link.airtable_uid = data_sources.airtable_uid
-            INNER JOIN
-                agencies ON agency_source_link.agency_described_linked_uid = agencies.airtable_uid
-            WHERE
-                data_sources.approval_status = 'approved'
-        """
+        sql_query = DynamicQueryConstructor.build_agency_data_source_query(params)
         self.cursor.execute(sql_query)
-        results = self.cursor.fetchall()
+        return self.cursor.fetchall()
 
-        return [self.MapInfo(*result) for result in results]
+    # endregion
 
     def get_agencies_from_page(self, page: int) -> list[tuple[Any, ...]]:
         """
@@ -372,8 +342,7 @@ class DatabaseClient:
             sql_query,
             (offset,),
         )
-        results = self.cursor.fetchall()
-        return results
+        return self.cursor.fetchall()
 
     @staticmethod
     def get_offset(page: int) -> int:
@@ -637,6 +606,7 @@ class DatabaseClient:
     TypeaheadSuggestions = namedtuple(
         "TypeaheadSuggestions", ["display_name", "type", "state", "county", "locality"]
     )
+
     def get_typeahead_suggestions(self, search_term: str) -> List[TypeaheadSuggestions]:
         """
         Returns a list of data sources that match the search query.
@@ -644,7 +614,9 @@ class DatabaseClient:
         :param search_term: The search query.
         :return: List of data sources that match the search query.
         """
-        query = DynamicQueryConstructor.generate_new_typeahead_suggestion_query(search_term)
+        query = DynamicQueryConstructor.generate_new_typeahead_suggestion_query(
+            search_term
+        )
         self.cursor.execute(query)
         results = self.cursor.fetchall()
 

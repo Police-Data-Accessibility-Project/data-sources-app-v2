@@ -5,11 +5,11 @@ from typing import Optional
 
 from psycopg2 import sql
 
+from database_client.parameter_objects import AgencyDataSourceParams
 from database_client.constants import (
-    AGENCY_APPROVED_COLUMNS,
-    DATA_SOURCES_APPROVED_COLUMNS,
     RESTRICTED_DATA_SOURCE_COLUMNS,
-    RESTRICTED_COLUMNS,
+    AGENCY_DATA_SOURCE_VIEW_COLUMNS,
+    DATA_SOURCES_NEEDS_IDENTIFICATION_COLUMNS,
 )
 from utilities.enums import RecordCategories
 
@@ -61,74 +61,9 @@ class DynamicQueryConstructor:
         return [TableColumn(table, column) for column in columns]
 
     @staticmethod
-    def build_get_approved_data_sources_query() -> sql.Composed:
-        data_sources_columns = DynamicQueryConstructor.create_table_columns(
-            table="data_sources", columns=DATA_SOURCES_APPROVED_COLUMNS
-        )
-
-        fields = DynamicQueryConstructor.build_fields(
-            columns_only=data_sources_columns,
-            columns_and_alias=[
-                TableColumnAlias(table="agencies", column="name", alias="agency_name")
-            ],
-        )
-        sql_query = sql.SQL(
-            """
-            SELECT
-                {fields}
-            FROM
-                agency_source_link
-            INNER JOIN
-                data_sources ON agency_source_link.airtable_uid = data_sources.airtable_uid
-            INNER JOIN
-                agencies ON agency_source_link.agency_described_linked_uid = agencies.airtable_uid
-            WHERE
-                data_sources.approval_status = 'approved'
-        """
-        ).format(fields=fields)
-        return sql_query
-
-    @staticmethod
-    def build_data_source_by_id_results_query() -> sql.Composed:
-        data_sources_columns = DynamicQueryConstructor.create_table_columns(
-            table="data_sources", columns=DATA_SOURCES_APPROVED_COLUMNS
-        )
-        agencies_approved_columns = DynamicQueryConstructor.create_table_columns(
-            table="agencies", columns=AGENCY_APPROVED_COLUMNS
-        )
-        alias_columns = [
-            TableColumnAlias(table="agencies", column="name", alias="agency_name"),
-            TableColumnAlias(
-                table="agencies", column="airtable_uid", alias="agency_id"
-            ),
-            TableColumnAlias(
-                table="data_sources", column="airtable_uid", alias="data_source_id"
-            ),
-        ]
-        fields = DynamicQueryConstructor.build_fields(
-            columns_only=data_sources_columns + agencies_approved_columns,
-            columns_and_alias=alias_columns,
-        )
-        sql_query = sql.SQL(
-            """
-            SELECT
-                {fields}
-            FROM
-                agency_source_link
-            INNER JOIN
-                data_sources ON agency_source_link.airtable_uid = data_sources.airtable_uid
-            INNER JOIN
-                agencies ON agency_source_link.agency_described_linked_uid = agencies.airtable_uid
-            WHERE
-                data_sources.approval_status = 'approved' AND data_sources.airtable_uid = %s
-        """
-        ).format(fields=fields)
-        return sql_query
-
-    @staticmethod
     def build_needs_identification_data_source_query():
         data_sources_columns = DynamicQueryConstructor.create_table_columns(
-            table="data_sources", columns=DATA_SOURCES_APPROVED_COLUMNS
+            table="data_sources", columns=DATA_SOURCES_NEEDS_IDENTIFICATION_COLUMNS
         )
         fields = DynamicQueryConstructor.build_fields(
             columns_only=data_sources_columns,
@@ -144,12 +79,6 @@ class DynamicQueryConstructor:
         """
         ).format(fields=fields)
         return sql_query
-
-    @staticmethod
-    def zip_needs_identification_data_source_results(
-        results: list[tuple],
-    ) -> list[dict]:
-        return [dict(zip(DATA_SOURCES_APPROVED_COLUMNS, result)) for result in results]
 
     @staticmethod
     def create_data_source_update_query(
@@ -194,7 +123,7 @@ class DynamicQueryConstructor:
         columns = []
         values = []
         for key, value in data.items():
-            if key not in RESTRICTED_COLUMNS:
+            if key not in RESTRICTED_DATA_SOURCE_COLUMNS:
                 columns.append(sql.Identifier(key))
                 values.append(sql.Literal(value))
 
@@ -223,7 +152,6 @@ class DynamicQueryConstructor:
         )
 
         return query
-
 
     @staticmethod
     def generate_new_typeahead_suggestion_query(search_term: str):
@@ -273,70 +201,140 @@ class DynamicQueryConstructor:
         state: str,
         record_type: Optional[RecordCategories] = None,
         county: Optional[str] = None,
-        locality: Optional[str] = None
-    ) ->sql.Composed:
+        locality: Optional[str] = None,
+    ) -> sql.Composed:
 
-        base_query = sql.SQL("""
+        base_query = sql.SQL(
+            """
             SELECT
-                data_sources.airtable_uid,
-                data_sources.name AS data_source_name,
-                data_sources.description,
-                data_sources.record_type,
-                data_sources.source_url,
-                data_sources.record_format,
-                data_sources.coverage_start,
-                data_sources.coverage_end,
-                data_sources.agency_supplied,
-                agencies.name AS agency_name,
-                agencies.municipality,
-                agencies.state_iso
+                adsv.data_source_id as airtable_uid,
+                adsv.data_source_name,
+                adsv.description,
+                adsv.record_type,
+                adsv.source_url,
+                adsv.record_format,
+                adsv.coverage_start,
+                adsv.coverage_end,
+                adsv.agency_supplied,
+                adsv.agency_name,
+                adsv.municipality,
+                adsv.state_iso
             FROM
-                agency_source_link
+                agency_data_source_view adsv
             INNER JOIN
-                data_sources ON agency_source_link.airtable_uid = data_sources.airtable_uid
+                state_names ON adsv.state_iso = state_names.state_iso
             INNER JOIN
-                agencies ON agency_source_link.agency_described_linked_uid = agencies.airtable_uid
-            INNER JOIN
-                state_names ON agencies.state_iso = state_names.state_iso
-            INNER JOIN
-                counties ON agencies.county_fips = counties.fips
-        """)
+                counties ON adsv.county_fips = counties.fips
+        """
+        )
 
         join_conditions = []
         where_conditions = [
-            sql.SQL("state_names.state_name = {state_name}").format(state_name=sql.Literal(state)),
-            sql.SQL("data_sources.approval_status = 'approved'"),
-            sql.SQL("data_sources.url_status NOT IN ('broken', 'none found')")
+            sql.SQL("state_names.state_name = {state_name}").format(
+                state_name=sql.Literal(state)
+            ),
+            sql.SQL("adsv.approval_status = 'approved'"),
+            sql.SQL("adsv.url_status NOT IN ('broken', 'none found')"),
         ]
 
         if record_type is not None:
-            join_conditions.append(sql.SQL("""
+            join_conditions.append(
+                sql.SQL(
+                    """
                 INNER JOIN
-                    record_types ON data_sources.record_type_id = record_types.id
+                    record_types ON adsv.record_type_id = record_types.id
                 INNER JOIN
                     record_categories ON record_types.category_id = record_categories.id
-            """))
+            """
+                )
+            )
 
-            where_conditions.append(sql.SQL(
-                "record_categories.name = {record_type}"
-            ).format(record_type=sql.Literal(record_type.value)))
+            DynamicQueryConstructor.add_condition(where_conditions, "name", record_type.value, "record_categories")
 
-        if county is not None:
-            where_conditions.append(sql.SQL(
-                "counties.name = {county_name}"
-            ).format(county_name=sql.Literal(county)))
+        DynamicQueryConstructor.add_condition(where_conditions, "name", county, "counties")
+        DynamicQueryConstructor.add_condition(where_conditions, "municipality", locality, "adsv")
 
-        if locality is not None:
-            where_conditions.append(sql.SQL(
-                "agencies.municipality = {locality}"
-            ).format(locality=sql.Literal(locality)))
-
-        query = sql.Composed([
-            base_query,
-            sql.SQL(' ').join(join_conditions),
-            sql.SQL(" WHERE "),
-            sql.SQL(' AND ').join(where_conditions)
-        ])
+        query = sql.Composed(
+            [
+                base_query,
+                sql.SQL(" ").join(join_conditions),
+                sql.SQL(" WHERE "),
+                sql.SQL(" AND ").join(where_conditions),
+            ]
+        )
 
         return query
 
+    @staticmethod
+    def add_condition(conditions: list, column: str, value: str, table_name: Optional[str] = None):
+        if value is None:
+            return
+        if table_name is not None:
+            conditions.append(sql.SQL("{}.{} = {}").format(
+                sql.Identifier(table_name),
+                sql.Identifier(column),
+                sql.Literal(value)))
+        else:
+            conditions.append(sql.SQL("{} = {}").format(
+                sql.Identifier(column),
+                sql.Literal(value)))
+
+    @staticmethod
+    def add_limit_offset_clause(clause, value, clause_type):
+        if value is None:
+            return sql.SQL("")
+        if clause_type == "OFFSET":
+            return sql.SQL(" OFFSET {}").format(
+                sql.Literal(value))
+        elif clause_type == "LIMIT":
+            return sql.SQL(" LIMIT {}").format(
+                sql.Literal(value))
+
+    @staticmethod
+    def handle_select_columns(include_columns, exclude_columns):
+        if include_columns is not None:
+            return [sql.Identifier(col) for col in include_columns]
+        elif exclude_columns is not None:
+            exclude_columns_set = set(exclude_columns)
+            return [
+                sql.Identifier(col)
+                for col in set(AGENCY_DATA_SOURCE_VIEW_COLUMNS) - exclude_columns_set
+            ]
+        else:
+            return [sql.Identifier(col) for col in AGENCY_DATA_SOURCE_VIEW_COLUMNS]
+
+    @staticmethod
+    def build_agency_data_source_query(params: AgencyDataSourceParams):
+        base_query = sql.SQL(
+            """
+            SELECT
+                {columns}
+            FROM 
+                agency_data_source_view
+            """
+        )
+
+        # Dynamically add WHERE clauses
+        conditions = []
+        DynamicQueryConstructor.add_condition(conditions, "agency_id", params.agency_id)
+        DynamicQueryConstructor.add_condition(conditions, "data_source_id", params.data_source_id)
+        DynamicQueryConstructor.add_condition(conditions, "approval_status", params.approval_status)
+
+        where_clause = sql.SQL(" WHERE ") + sql.SQL(" AND ").join(conditions) if conditions else sql.SQL("")
+
+        # Add LIMIT and OFFSET clauses if applicable
+        limit_clause = DynamicQueryConstructor.add_limit_offset_clause(sql.SQL(""), params.limit, "LIMIT")
+        offset_clause = DynamicQueryConstructor.add_limit_offset_clause(sql.SQL(""), params.offset, "OFFSET")
+
+        # Handle optional columns
+        select_columns = DynamicQueryConstructor.handle_select_columns(params.include_columns, params.exclude_columns)
+
+        # Combine everything together
+        final_query = (
+            base_query.format(columns=sql.SQL(", ").join(select_columns))
+            + where_clause
+            + limit_clause
+            + offset_clause
+        )
+
+        return final_query

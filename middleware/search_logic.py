@@ -4,7 +4,7 @@ from typing import Optional
 from flask import Response, make_response
 
 from database_client.database_client import DatabaseClient
-from database_client.result_formatter import ResultFormatter, dictify_namedtuple
+from database_client.result_formatter import dictify_namedtuple
 from utilities.enums import RecordCategories
 from middleware.util import format_list_response
 

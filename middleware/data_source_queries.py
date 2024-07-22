@@ -3,10 +3,8 @@ from typing import Any
 
 from flask import make_response, Response
 
-
 from database_client.database_client import DatabaseClient
 from database_client.result_formatter import ResultFormatter
-from utilities.common import convert_dates_to_strings, format_arrays
 from middleware.util import format_list_response
 
 
@@ -16,7 +14,7 @@ class DataSourceNotFoundError(Exception):
 
 def get_approved_data_sources_wrapper(db_client: DatabaseClient) -> Response:
     raw_results = db_client.get_approved_data_sources()
-    zipped_results = ResultFormatter.zip_get_approved_data_sources_results(raw_results)
+    zipped_results = ResultFormatter.convert_data_source_matches(raw_results)
     return make_response(
         format_list_response(zipped_results),
         HTTPStatus.OK.value,
@@ -35,11 +33,25 @@ def data_source_by_id_wrapper(arg, db_client: DatabaseClient) -> Response:
 
 def get_data_sources_for_map_wrapper(db_client: DatabaseClient) -> Response:
     raw_results = db_client.get_data_sources_for_map()
-    zipped_results = ResultFormatter.zip_get_datas_sources_for_map_results(raw_results)
+    zipped_results = ResultFormatter.convert_data_source_matches(raw_results)
     return make_response(
         format_list_response(zipped_results),
         HTTPStatus.OK.value,
     )
+
+
+def update_data_source_wrapper(
+    db_client: DatabaseClient, data: dict, data_source_id: str
+) -> Response:
+    db_client.update_data_source(data, data_source_id)
+    return make_response(
+        {"message": "Data source updated successfully."}, HTTPStatus.OK
+    )
+
+
+def add_new_data_source_wrapper(db_client: DatabaseClient, data: dict) -> Response:
+    db_client.add_new_data_source(data)
+    return make_response({"message": "Data source added successfully."}, HTTPStatus.OK)
 
 
 def data_source_by_id_query(
@@ -60,34 +72,9 @@ def data_source_by_id_query(
     return ResultFormatter.zip_get_data_source_by_id_results(raw_results)
 
 
-def get_restricted_columns():
-    restricted_columns = [
-        "rejection_note",
-        "data_source_request",
-        "approval_status",
-        "airtable_uid",
-        "airtable_source_last_modified",
-    ]
-    return restricted_columns
-
-
-def update_data_source_wrapper(
-    db_client: DatabaseClient, data: dict, data_source_id: str
-) -> Response:
-    db_client.update_data_source(data, data_source_id)
-    return make_response(
-        {"message": "Data source updated successfully."}, HTTPStatus.OK
-    )
-
-
-def add_new_data_source_wrapper(db_client: DatabaseClient, data: dict) -> Response:
-    db_client.add_new_data_source(data)
-    return make_response({"message": "Data source added successfully."}, HTTPStatus.OK)
-
-
 def needs_identification_data_sources_wrapper(db_client: DatabaseClient) -> Response:
     raw_results = db_client.get_needs_identification_data_sources()
-    zipped_results = ResultFormatter.zip_needs_identification_data_source_results(
+    zipped_results = ResultFormatter.convert_data_source_matches(
         raw_results
     )
     return make_response(
@@ -95,23 +82,3 @@ def needs_identification_data_sources_wrapper(db_client: DatabaseClient) -> Resp
         HTTPStatus.OK.value,
     )
 
-
-def convert_data_source_matches(
-    data_source_output_columns: list[str], results: list[tuple]
-) -> dict:
-    """
-    Combine a list of output columns with a list of results,
-    and produce a list of dictionaries where the keys correspond
-    to the output columns and the values correspond to the results
-    :param data_source_output_columns:
-    :param results:
-    :return:
-    """
-    data_source_matches = [
-        dict(zip(data_source_output_columns, result)) for result in results
-    ]
-    data_source_matches_converted = []
-    for data_source_match in data_source_matches:
-        data_source_match = convert_dates_to_strings(data_source_match)
-        data_source_matches_converted.append(format_arrays(data_source_match))
-    return data_source_matches_converted
