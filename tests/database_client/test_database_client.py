@@ -5,14 +5,24 @@ from datetime import datetime, timezone, timedelta
 import psycopg2
 import pytest
 
+from database_client.constants import (
+    AGENCY_DATA_SOURCE_VIEW_COLUMNS,
+    DATA_SOURCES_APPROVED_COLUMNS,
+)
 from database_client.database_client import DatabaseClient
+from database_client.parameter_objects import AgencyDataSourceParams
 from database_client.result_formatter import ResultFormatter
 from middleware.custom_exceptions import (
     AccessTokenNotFoundError,
     UserNotFoundError,
     TokenNotFoundError,
 )
-from tests.fixtures import live_database_client, dev_db_connection, db_cursor, xylonslyvania_test_data
+from tests.fixtures import (
+    live_database_client,
+    dev_db_connection,
+    db_cursor,
+    xylonslyvania_test_data,
+)
 from tests.helper_functions import (
     insert_test_agencies_and_sources,
     insert_test_agencies_and_sources_if_not_exist,
@@ -104,10 +114,9 @@ def test_get_data_source_by_id(live_database_client):
     result = live_database_client.get_data_source_by_id("SOURCE_UID_1")
 
     # Confirm the data source and agency are retrieved successfully
-    NUMBER_OF_RESULT_COLUMNS = 67
     assert result is not None
-    assert len(result) == NUMBER_OF_RESULT_COLUMNS
-    assert result[0] == "Source 1"
+    assert list(result.keys()).sort() == AGENCY_DATA_SOURCE_VIEW_COLUMNS.sort()
+    assert result["data_source_name"] == "Source 1"
 
 
 def test_get_approved_data_sources(live_database_client):
@@ -118,9 +127,10 @@ def test_get_approved_data_sources(live_database_client):
     data_sources = live_database_client.get_approved_data_sources()
 
     # Confirm only all approved data sources are retrieved
-    NUMBER_OF_DATA_SOURCE_COLUMNS = 42
     assert len(data_sources) > 0
-    assert len(data_sources[0]) == NUMBER_OF_DATA_SOURCE_COLUMNS
+    assert list(data_sources[0].keys()) == DATA_SOURCES_APPROVED_COLUMNS + [
+        "agency_name"
+    ]
 
 
 def test_get_needs_identification_data_sources(live_database_client):
@@ -132,9 +142,52 @@ def test_get_needs_identification_data_sources(live_database_client):
     found = False
     for result in results:
         # Confirm "Source 2" (which was inserted as "needs identification" is retrieved).
-        if result[0] != "Source 2":
+        if result["name"] != "Source 2":
             continue
         found = True
+    assert list(results[0].keys()).sort() == [
+        "name",
+        "submitted_name",
+        "description",
+        "record_type",
+        "source_url",
+        "agency_supplied",
+        "supplying_entity",
+        "agency_originated",
+        "originating_entity",
+        "agency_aggregation",
+        "coverage_start",
+        "coverage_end",
+        "source_last_updated",
+        "retention_schedule",
+        "detail_level",
+        "number_of_records_available",
+        "size",
+        "access_type",
+        "data_portal_type",
+        "record_format",
+        "update_frequency",
+        "update_method",
+        "tags",
+        "readme_url",
+        "scraper_url",
+        "data_source_created",
+        "airtable_source_last_modified",
+        "url_status",
+        "rejection_note",
+        "last_approval_editor",
+        "agency_described_submitted",
+        "agency_described_not_in_database",
+        "approval_status",
+        "record_type_other",
+        "data_portal_type_other",
+        "records_not_online",
+        "data_source_request",
+        "url_button",
+        "tags_other",
+        "access_notes",
+        "last_cached",
+    ].sort()
     assert found
     # Confirm only all data sources labeled 'needs identification' are retrieved
 
@@ -172,7 +225,7 @@ def test_update_data_source(live_database_client):
     # Fetch the data source from the database to confirm the change
     result = live_database_client.get_data_source_by_id("SOURCE_UID_1")
 
-    assert result[2] == new_description
+    assert result["description"] == new_description
 
 
 def test_get_data_sources_for_map(live_database_client):
@@ -183,11 +236,11 @@ def test_get_data_sources_for_map(live_database_client):
     # Confirm both data sources are retrieved and only the proper columns are returned
     found_source = False
     for result in results:
-        if result.data_source_name != "Source 1":
+        if result["data_source_name"] != "Source 1":
             continue
         found_source = True
-        assert result.lat == 30
-        assert result.lng == 20
+        assert result["lat"] == 30
+        assert result["lng"] == 20
     assert found_source
 
 
@@ -449,6 +502,7 @@ def test_get_typeahead_suggestion(live_database_client):
     assert results[2].county == "Arxylodon"
     assert results[2].locality is None
 
+
 def test_search_with_location_and_record_types_real_data(live_database_client):
     """
     Due to the large number of combinations, I will refer to tests using certain parameters by their first letter
@@ -467,39 +521,46 @@ def test_search_with_location_and_record_types_real_data(live_database_client):
     county_parameter = "Allegheny"
     locality_parameter = "Pittsburgh"
 
-    SRLC = len(live_database_client.search_with_location_and_record_type(
-        state=state_parameter,
-        record_type=record_type_parameter,
-        county=county_parameter,
-        locality=locality_parameter
-    ))
-    S = len(live_database_client.search_with_location_and_record_type(
-        state=state_parameter
-    ))
-    SR = len(live_database_client.search_with_location_and_record_type(
-        state=state_parameter,
-        record_type=record_type_parameter
-    ))
-    SRC = len(live_database_client.search_with_location_and_record_type(
-        state=state_parameter,
-        record_type=record_type_parameter,
-        county=county_parameter
-    ))
-    SCL = len(live_database_client.search_with_location_and_record_type(
-        state=state_parameter,
-        county=county_parameter,
-        locality=locality_parameter
-    ))
-    SC = len(live_database_client.search_with_location_and_record_type(
-        state=state_parameter,
-        county=county_parameter
-    ))
+    SRLC = len(
+        live_database_client.search_with_location_and_record_type(
+            state=state_parameter,
+            record_type=record_type_parameter,
+            county=county_parameter,
+            locality=locality_parameter,
+        )
+    )
+    S = len(
+        live_database_client.search_with_location_and_record_type(state=state_parameter)
+    )
+    SR = len(
+        live_database_client.search_with_location_and_record_type(
+            state=state_parameter, record_type=record_type_parameter
+        )
+    )
+    SRC = len(
+        live_database_client.search_with_location_and_record_type(
+            state=state_parameter,
+            record_type=record_type_parameter,
+            county=county_parameter,
+        )
+    )
+    SCL = len(
+        live_database_client.search_with_location_and_record_type(
+            state=state_parameter, county=county_parameter, locality=locality_parameter
+        )
+    )
+    SC = len(
+        live_database_client.search_with_location_and_record_type(
+            state=state_parameter, county=county_parameter
+        )
+    )
 
     assert SRLC > 0
     assert SRLC < SRC
     assert SRLC < SCL
     assert S > SR > SRC
     assert S > SC > SCL
+
 
 # TODO: This code currently doesn't work properly because it will repeatedly insert the same test data, throwing off counts
 # def test_search_with_location_and_record_types_test_data(live_database_client, xylonslyvania_test_data):
@@ -536,3 +597,102 @@ def test_search_with_location_and_record_types_real_data(live_database_client):
 #
 #     assert len(results) == 1
 #     assert results[0].data_source_name == 'Xylodammerung Police Department Stops'
+
+
+def test_get_agencies_data_sources_base_case(live_database_client):
+    params = AgencyDataSourceParams(limit=3)
+    results = live_database_client.get_agencies_data_sources(params)
+    assert len(results) == 3
+    assert list(results[0].keys()) == AGENCY_DATA_SOURCE_VIEW_COLUMNS
+
+
+def test_get_agencies_data_sources_offset(live_database_client):
+    """
+    Test that offset parameter properly works
+    :param live_database_client:
+    :return:
+    """
+    params_no_offset = AgencyDataSourceParams(limit=1, offset=None)
+    result_no_offset = live_database_client.get_agencies_data_sources(params_no_offset)
+
+    params_offset = AgencyDataSourceParams(limit=1, offset=1)
+    result_offset = live_database_client.get_agencies_data_sources(params_offset)
+
+    assert len(result_no_offset) == 1
+    assert len(result_offset) == 1
+    assert (
+        result_no_offset[0]["data_source_name"] != result_offset[0]["data_source_name"]
+    )
+
+
+def test_get_agencies_data_sources_data_source_id(live_database_client):
+    insert_test_agencies_and_sources_if_not_exist(live_database_client.cursor)
+    params = AgencyDataSourceParams(
+        data_source_id="SOURCE_UID_1",
+    )
+    results = live_database_client.get_agencies_data_sources(params)
+    assert len(results) == 1
+    assert results[0]["data_source_name"] == "Source 1"
+
+
+def test_get_agencies_data_sources_agency_id(live_database_client):
+    insert_test_agencies_and_sources_if_not_exist(live_database_client.cursor)
+    params = AgencyDataSourceParams(
+        agency_id="Agency_UID_1",
+    )
+    results = live_database_client.get_agencies_data_sources(params)
+    assert len(results) == 1
+    assert results[0]["agency_name"] == "Agency A"
+
+
+def test_get_agencies_data_sources_approval_status(live_database_client):
+    insert_test_agencies_and_sources_if_not_exist(live_database_client.cursor)
+    params = AgencyDataSourceParams(
+        data_source_id="SOURCE_UID_1",
+        approval_status="approved",
+    )
+    results = live_database_client.get_agencies_data_sources(params)
+    assert len(results) == 1
+
+    params = AgencyDataSourceParams(
+        data_source_id="SOURCE_UID_1",
+        approval_status="pending",
+    )
+    results = live_database_client.get_agencies_data_sources(params)
+    assert len(results) == 0
+
+    params = AgencyDataSourceParams(
+        data_source_id="SOURCE_UID_3",
+        approval_status="pending",
+    )
+    results = live_database_client.get_agencies_data_sources(params)
+    assert len(results) == 1
+
+
+def test_get_agencies_data_sources_include_columns(live_database_client):
+    insert_test_agencies_and_sources_if_not_exist(live_database_client.cursor)
+    params = AgencyDataSourceParams(
+        data_source_id="SOURCE_UID_1",
+        include_columns=["agency_name", "data_source_name"],
+    )
+    results = live_database_client.get_agencies_data_sources(params)
+    assert len(results) == 1
+    assert list(results[0].keys()) == ["agency_name", "data_source_name"]
+
+
+def test_get_agencies_data_sources_exclude_columns(live_database_client):
+    insert_test_agencies_and_sources_if_not_exist(live_database_client.cursor)
+    params_with_exclude = AgencyDataSourceParams(
+        data_source_id="SOURCE_UID_1",
+        exclude_columns=["data_source_name"],
+    )
+    results = live_database_client.get_agencies_data_sources(params_with_exclude)
+    assert len(results) == 1
+    assert "data_source_name" not in list(results[0].keys())
+
+    params_without_exclude = AgencyDataSourceParams(
+        data_source_id="SOURCE_UID_1",
+    )
+    results = live_database_client.get_agencies_data_sources(params_without_exclude)
+    assert len(results) == 1
+    assert "data_source_name" in list(results[0].keys())

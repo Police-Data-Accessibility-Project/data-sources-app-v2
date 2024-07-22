@@ -36,7 +36,7 @@ def test_data_sources_get(
     check_response_status(response, HTTPStatus.OK.value)
     data = response.get_json()["data"]
     for result in data:
-        name = result["name"]
+        name = result["data_source_name"]
         if name in inserted_data_sources_found:
             inserted_data_sources_found[name] = True
     assert inserted_data_sources_found["Source 1"]

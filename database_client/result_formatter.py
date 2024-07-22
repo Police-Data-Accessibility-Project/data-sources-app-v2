@@ -1,14 +1,9 @@
 from collections import namedtuple
 from typing import Any
 
-from database_client.constants import (
-    DATA_SOURCES_APPROVED_COLUMNS,
-    DATA_SOURCES_MAP_COLUMN,
-    DATA_SOURCES_OUTPUT_COLUMNS,
-    AGENCY_APPROVED_COLUMNS,
-)
-from utilities.common import convert_dates_to_strings, format_arrays
+from psycopg2.extras import DictRow
 
+from utilities.common import convert_dates_to_strings, format_arrays
 
 class ResultFormatter:
     """
@@ -18,18 +13,18 @@ class ResultFormatter:
 
     @staticmethod
     def convert_data_source_matches(
-        data_source_output_columns: list[str], results: list[tuple]
+        results: list[DictRow]
     ) -> list[dict]:
         """
         Combine a list of output columns with a list of results,
         and produce a list of dictionaries where the keys correspond
         to the output columns and the values correspond to the results
-        :param data_source_output_columns:
         :param results:
         :return:
         """
+        columns = list(results[0].keys())
         data_source_matches = [
-            dict(zip(data_source_output_columns, result)) for result in results
+            dict(zip(columns, result)) for result in results
         ]
         data_source_matches_converted = []
         for data_source_match in data_source_matches:
@@ -38,37 +33,8 @@ class ResultFormatter:
         return data_source_matches_converted
 
     @staticmethod
-    def zip_needs_identification_data_source_results(
-        results: list[tuple],
-    ) -> list[dict]:
-        return ResultFormatter.convert_data_source_matches(
-            DATA_SOURCES_APPROVED_COLUMNS, results
-        )
-
-    @staticmethod
-    def zip_get_datas_sources_for_map_results(results: list[tuple]) -> list[dict]:
-        return ResultFormatter.convert_data_source_matches(
-            DATA_SOURCES_MAP_COLUMN, results
-        )
-
-    @staticmethod
-    def zip_get_approved_data_sources_results(results: list[tuple]) -> list[dict]:
-        return ResultFormatter.convert_data_source_matches(
-            DATA_SOURCES_OUTPUT_COLUMNS, results
-        )
-
-    @staticmethod
-    def zip_get_data_source_by_id_results(results: tuple[Any, ...]) -> dict[str, Any]:
-        data_source_and_agency_columns = (
-            DATA_SOURCES_APPROVED_COLUMNS + AGENCY_APPROVED_COLUMNS
-        )
-        data_source_and_agency_columns.extend(
-            ["data_source_id", "agency_id", "agency_name"]
-        )
-        # Convert to a list and only return the first (and only)
-        return ResultFormatter.convert_data_source_matches(
-            data_source_and_agency_columns, [results]
-        )[0]
+    def zip_get_data_source_by_id_results(result: DictRow[Any, ...]) -> dict[str, Any]:
+        return ResultFormatter.convert_data_source_matches([result])[0]
 
 def dictify_namedtuple(result: list[namedtuple]) -> list[dict[str, Any]]:
     return [result._asdict() for result in result]

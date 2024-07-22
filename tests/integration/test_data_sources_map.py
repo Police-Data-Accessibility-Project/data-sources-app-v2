@@ -26,7 +26,7 @@ def test_data_sources_map_get(
     data = response.json["data"]
     found_source = False
     for result in data:
-        name = result["name"]
+        name = result["data_source_name"]
         if name != "Source 1":
             continue
         found_source = True

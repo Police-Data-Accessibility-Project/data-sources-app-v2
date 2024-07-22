@@ -135,32 +135,6 @@ def mock_datetime():
         yield mock
 
 
-def test_convert_data_source_matches():
-    """
-    Convert_data_source_matches should output a list of
-    dictionaries based on the provided list of columns
-    and the list of tuples
-    """
-
-    # Define Test case Input and Output data
-    testcases = [
-        {
-            "data_source_output_columns": ["name", "age"],
-            "results": [("Joe", 20), ("Annie", 30)],
-            "output": [{"name": "Joe", "age": 20}, {"name": "Annie", "age": 30}],
-        },
-        # You can add more tests here as per requirement.
-    ]
-
-    # Execute the tests
-    for testcase in testcases:
-        assert (
-            data_source_queries.convert_data_source_matches(
-                testcase["data_source_output_columns"], testcase["results"]
-            )
-            == testcase["output"]
-        )
-
 
 @pytest.fixture
 def mock_make_response(monkeypatch):
