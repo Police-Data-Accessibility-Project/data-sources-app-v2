@@ -325,58 +325,6 @@ def test_get_role_by_email(live_database_client):
     # Confirm the role is retrieved successfully
     assert role_info.role == "test_role"
 
-
-def test_add_new_session_token(live_database_client):
-    # Add a new user to the database
-    email = uuid.uuid4().hex
-    live_database_client.add_new_user(
-        email=email,
-        password_digest="test_password",
-    )
-
-    # Create a new session token locally
-    session_token = uuid.uuid4().hex
-
-    # Call the DatabaseClient method add the session token to the database
-    live_database_client.add_new_session_token(
-        session_token=session_token,
-        email=email,
-        expiration=datetime.now(tz=timezone.utc),
-    )
-
-    # Fetch the new session token from the database to confirm it was added successfully
-    result = live_database_client.get_session_token_info(api_key=session_token)
-
-    assert result.email == email
-
-
-def test_delete_session_token(live_database_client):
-    # Create new user
-    email = uuid.uuid4().hex
-    live_database_client.add_new_user(
-        email=email,
-        password_digest="test_password",
-    )
-
-    # Add a session token to the database associated with the user
-    session_token = uuid.uuid4().hex
-    live_database_client.add_new_session_token(
-        session_token=session_token,
-        email=email,
-        expiration=datetime.now(tz=timezone.utc),
-    )
-
-    # Confirm session token exists beforehand:
-    result = live_database_client.get_session_token_info(api_key=session_token)
-    assert result.email == email
-
-    # Delete the session token with the DatabaseClient method
-    live_database_client.delete_session_token(old_token=session_token)
-
-    # Confirm the session token was deleted by attempting to fetch it
-    assert live_database_client.get_session_token_info(session_token) is None
-
-
 def test_get_access_token(live_database_client):
     # Add a new access token to the database
     live_database_client.add_new_access_token(

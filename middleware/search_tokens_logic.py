@@ -1,4 +1,3 @@
-import psycopg2.extensions
 from flask import Response
 
 from database_client.database_client import DatabaseClient
@@ -14,9 +13,6 @@ class UnknownEndpointError(Exception):
     def __init__(self, endpoint):
         self.message = f"Unknown endpoint: {endpoint}"
         super().__init__(self.message)
-
-
-from enum import Enum
 
 
 class Endpoint(Enum):

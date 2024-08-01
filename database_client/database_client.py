@@ -154,26 +154,6 @@ class DatabaseClient:
         ).format(sql.Literal(email), sql.Literal(token))
         self.cursor.execute(query)
 
-    SessionTokenInfo = namedtuple(
-        "SessionTokenInfo", ["id", "email", "expiration_date"]
-    )
-
-    def get_session_token_info(self, api_key: str) -> Optional[SessionTokenInfo]:
-        """
-        Checks if a session token exists in the database and retrieves the associated user data.
-
-        :param api_key: The session token to check.
-        :return: SessionTokenInfo if the token exists; otherwise, None.
-        """
-        query = sql.SQL(
-            "select id, email, expiration_date from session_tokens where token = {}"
-        ).format(sql.Literal(api_key))
-        self.cursor.execute(query)
-        row = self.cursor.fetchone()
-        if row is None:
-            return None
-        return self.SessionTokenInfo(id=row[0], email=row[1], expiration_date=row[2])
-
     RoleInfo = namedtuple("RoleInfo", ["id", "role"])
 
     def get_role_by_api_key(self, api_key: str) -> Optional[RoleInfo]:
@@ -584,36 +564,6 @@ class DatabaseClient:
             password_digest=results[1],
             api_key=results[2],
         )
-
-    def add_new_session_token(self, session_token, email: str, expiration) -> None:
-        """
-        Inserts a session token into the database.
-
-        :param session_token: The session token.
-        :param email: User's email.
-        :param expiration: The session token's expiration.
-        """
-        query = sql.SQL(
-            "insert into session_tokens (token, email, expiration_date) values ({token}, {email}, {expiration})"
-        ).format(
-            token=sql.Literal(session_token),
-            email=sql.Literal(email),
-            expiration=sql.Literal(expiration),
-        )
-        self.cursor.execute(query)
-
-    SessionTokenUserData = namedtuple("SessionTokenUserData", ["id", "email"])
-
-    def delete_session_token(self, old_token: str) -> None:
-        """
-        Deletes a session token from the database.
-
-        :param old_token: The session token.
-        """
-        query = sql.SQL("delete from session_tokens where token = {token}").format(
-            token=sql.Literal(old_token)
-        )
-        self.cursor.execute(query)
 
     AccessToken = namedtuple("AccessToken", ["id", "token"])
 

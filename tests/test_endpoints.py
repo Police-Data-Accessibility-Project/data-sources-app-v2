@@ -23,12 +23,10 @@ from resources.DataSources import (
 )
 from resources.Login import Login
 from resources.QuickSearch import QuickSearch
-from resources.RefreshSession import RefreshSession
 from resources.RequestResetPassword import RequestResetPassword
 from resources.ResetPassword import ResetPassword
 from resources.ResetTokenValidation import ResetTokenValidation
 from resources.Search import Search
-from resources.SearchTokens import SearchTokens
 from resources.TypeaheadSuggestions import TypeaheadSuggestions
 from resources.User import User
 from tests.fixtures import client_with_mock_db, ClientWithMockDB
@@ -65,7 +63,6 @@ TestParameters = namedtuple("Resource", ["class_type", "endpoint", "allowed_meth
 test_parameters = [
     TestParameters(User, "/user", [POST, PUT]),
     TestParameters(Login, "/login", [POST]),
-    TestParameters(RefreshSession, "/refresh-session", [POST]),
     TestParameters(ApiKey, "/api/api_key", [GET]),
     TestParameters(RequestResetPassword, "/request-reset-password", [POST]),
     TestParameters(ResetPassword, "/reset-password", [POST]),
@@ -79,7 +76,6 @@ test_parameters = [
     ),
     TestParameters(DataSourceById, "/data-sources-by-id/<data_source_id>", [GET, PUT]),
     TestParameters(Agencies, "/agencies/<page>", [GET]),
-    TestParameters(SearchTokens, "/search-tokens", [GET]),
     TestParameters(Search, "/search/search-location-and-record-type", [GET]),
     TestParameters(TypeaheadSuggestions, "/search/typeahead-suggestions", [GET]),
 ]

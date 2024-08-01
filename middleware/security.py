@@ -51,23 +51,12 @@ def validate_api_key(api_key: str, endpoint: str, method: str):
         validate_role(role, endpoint, method)
         return
 
+    db_client.delete_expired_access_tokens()
     try:
-        session_token_results = get_session_token(api_key, db_client)
-
-        if session_token_results.expiration_date < dt.utcnow():
-            raise ExpiredAPIKeyError("Session token expired")
-
-        if is_admin(db_client, session_token_results.email):
-            validate_role(role="admin", endpoint=endpoint, method=method)
-            return
-
-    except SessionTokenNotFoundError:
-        db_client.delete_expired_access_tokens()
-        try:
-            db_client.get_access_token(api_key)
-            role = "user"
-        except AccessTokenNotFoundError:
-            raise InvalidAPIKeyError("API Key not found")
+        db_client.get_access_token(api_key)
+        role = "user"
+    except AccessTokenNotFoundError:
+        raise InvalidAPIKeyError("API Key not found")
 
     validate_role(role, endpoint, method)
 
@@ -94,13 +83,6 @@ SessionTokenResults = namedtuple("SessionTokenResults", ["email", "expiration_da
 
 class SessionTokenNotFoundError(Exception):
     pass
-
-
-def get_session_token(api_key, db_client: DatabaseClient) -> SessionTokenResults:
-    session_token_results = db_client.get_session_token_info(api_key)
-    if not session_token_results:
-        raise SessionTokenNotFoundError("Session token not found")
-    return session_token_results
 
 
 def is_admin_only_action(endpoint, method):
