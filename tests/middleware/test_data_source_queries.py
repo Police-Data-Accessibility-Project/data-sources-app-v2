@@ -35,20 +35,14 @@ def setup_try_logging_in_mocks(monkeypatch, check_password_hash_return_value):
     mock_password = MagicMock()
     mock_password_digest = MagicMock()
     mock_user_id = MagicMock()
-    mock_session_token = MagicMock()
     mock_user_info = DatabaseClient.UserInfo(
         password_digest=mock_password_digest, id=mock_user_id, api_key=None
     )
     mock_db_client.get_user_info = MagicMock(return_value=mock_user_info)
     mock_make_response = MagicMock()
-    mock_create_session_token = MagicMock(return_value=mock_session_token)
     mock_check_password_hash = MagicMock(return_value=check_password_hash_return_value)
 
-    # Use monkeypatch to set mock values
-    monkeypatch.setattr(
-        "middleware.login_queries.create_session_token",
-        mock_create_session_token,
-    )
+
     monkeypatch.setattr("middleware.login_queries.make_response", mock_make_response)
     monkeypatch.setattr(
         "middleware.login_queries.check_password_hash", mock_check_password_hash
@@ -59,10 +53,8 @@ def setup_try_logging_in_mocks(monkeypatch, check_password_hash_return_value):
         mock_email,
         mock_password,
         mock_user_id,
-        mock_session_token,
         None,
         mock_make_response,
-        mock_create_session_token,
     )
 
 
@@ -72,10 +64,8 @@ def test_try_logging_in_successful(monkeypatch):
         mock_email,
         mock_password,
         mock_user_id,
-        mock_session_token,
         mock_get_user_info,
         mock_make_response,
-        mock_create_session_token,
     ) = setup_try_logging_in_mocks(monkeypatch, check_password_hash_return_value=True)
 
     # Call function
@@ -83,11 +73,8 @@ def test_try_logging_in_successful(monkeypatch):
 
     # Assert
     mock_db_client.get_user_info.assert_called_with(mock_email)
-    mock_create_session_token.assert_called_with(
-        mock_db_client, mock_user_id, mock_email
-    )
     mock_make_response.assert_called_with(
-        {"message": "Successfully logged in", "data": mock_session_token}, HTTPStatus.OK
+        {"message": "Successfully logged in", "data": "DUMMY_TOKEN"}, HTTPStatus.OK
     )
 
 
@@ -97,10 +84,8 @@ def test_try_logging_in_unsuccessful(monkeypatch):
         mock_email,
         mock_password,
         mock_user_id,
-        mock_session_token,
         mock_get_user_info,
         mock_make_response,
-        mock_create_session_token,
     ) = setup_try_logging_in_mocks(monkeypatch, check_password_hash_return_value=False)
 
     # Call function
@@ -108,7 +93,6 @@ def test_try_logging_in_unsuccessful(monkeypatch):
 
     # Assert
     mock_db_client.get_user_info.assert_called_with(mock_email)
-    mock_create_session_token.assert_not_called()
     mock_make_response.assert_called_with(
         {"message": "Invalid email or password"}, HTTPStatus.UNAUTHORIZED
     )

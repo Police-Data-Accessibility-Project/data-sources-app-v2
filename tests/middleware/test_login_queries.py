@@ -1,21 +1,13 @@
-import uuid
 from http import HTTPStatus
-from unittest.mock import patch, MagicMock
-
-import psycopg2
-import pytest
+from unittest.mock import MagicMock
 
 from database_client.database_client import DatabaseClient
 from middleware.login_queries import (
-    create_session_token,
     is_admin,
     generate_api_key,
     get_api_key_for_user,
-    refresh_session,
 )
-from middleware.custom_exceptions import UserNotFoundError, TokenNotFoundError
-from tests.helper_functions import create_test_user, DynamicMagicMock
-from tests.fixtures import db_cursor, dev_db_connection
+
 
 
 def test_is_admin_happy_path() -> None:
@@ -146,58 +138,4 @@ def setup_mocks(monkeypatch):
         mock_password_digest,
         mock_update_api_key,
         mock_user_id,
-    )
-
-
-class RefreshSessionMocks(DynamicMagicMock):
-    db_client: MagicMock
-    old_token: MagicMock
-    new_token: MagicMock
-    get_session_token_user_data: MagicMock
-    session_token_info: MagicMock
-    delete_session_token: MagicMock
-    make_response: MagicMock
-    create_session_token: MagicMock
-    mock_user_id: MagicMock
-    mock_email: MagicMock
-
-
-@pytest.fixture
-def setup_refresh_session_mocks(monkeypatch):
-    mock = RefreshSessionMocks()
-    mock.db_client.get_session_token_info.return_value = mock.session_token_info
-    mock.create_session_token.return_value = mock.new_token
-    mock.session_token_info.id = mock.mock_user_id
-    mock.session_token_info.email = mock.mock_email
-
-    monkeypatch.setattr("middleware.login_queries.make_response", mock.make_response)
-    monkeypatch.setattr(
-        "middleware.login_queries.create_session_token", mock.create_session_token
-    )
-    return mock
-
-
-def test_refresh_session_happy_path(setup_refresh_session_mocks):
-    mock = setup_refresh_session_mocks
-    refresh_session(mock.db_client, mock.old_token)
-    mock.db_client.get_session_token_info.assert_called_with(mock.old_token)
-    mock.db_client.delete_session_token.assert_called_with(mock.old_token)
-    mock.create_session_token.assert_called_with(
-        mock.db_client, mock.session_token_info.id, mock.session_token_info.email
-    )
-    mock.make_response.assert_called_with(
-        {"message": "Successfully refreshed session token", "data": mock.new_token},
-        HTTPStatus.OK,
-    )
-
-
-def test_refresh_session_token_not_found_error(setup_refresh_session_mocks):
-    mock = setup_refresh_session_mocks
-    mock.db_client.get_session_token_info.return_value = None
-    refresh_session(mock.db_client, mock.old_token)
-    mock.db_client.get_session_token_info.assert_called_with(mock.old_token)
-    mock.delete_session_token.assert_not_called()
-    mock.create_session_token.assert_not_called()
-    mock.make_response.assert_called_with(
-        {"message": "Invalid session token"}, HTTPStatus.FORBIDDEN
     )

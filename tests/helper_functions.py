@@ -217,25 +217,6 @@ def create_test_user_api(client: FlaskClient) -> UserInfo:
     return UserInfo(email=email, password=password)
 
 
-def login_and_return_session_token(
-    client_with_db: FlaskClient, user_info: UserInfo
-) -> str:
-    """
-    Login as a given user and return the associated session token,
-    using the /login endpoint of the Flask API
-    :param client_with_db:
-    :param user_info:
-    :return:
-    """
-    response = client_with_db.post(
-        "/api/login",
-        json={"email": user_info.email, "password": user_info.password},
-    )
-    assert response.status_code == HTTPStatus.OK.value, "User login unsuccessful"
-    session_token = response.json.get("data")
-    return session_token
-
-
 def get_user_password_digest(cursor: psycopg2.extensions.cursor, user_info):
     """
     Get the associated password digest of a user (given their email) from the database

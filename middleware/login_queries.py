@@ -26,11 +26,15 @@ def try_logging_in(db_client: DatabaseClient, email: str, password: str) -> Resp
     :param password: User's password.
     :return: A response object with a message and status code.
     """
-    user_info = db_client.get_user_info(email)
-    if check_password_hash(user_info.password_digest, password):
-        token = create_session_token(db_client, user_info.id, email)
+    try:
+        user_info = db_client.get_user_info(email)
+    except UserNotFoundError:
         return make_response(
-            {"message": "Successfully logged in", "data": token}, HTTPStatus.OK
+            {"message": "Invalid email or password"}, HTTPStatus.UNAUTHORIZED
+        )
+    if check_password_hash(user_info.password_digest, password):
+        return make_response(
+            {"message": "Successfully logged in", "data": "DUMMY_TOKEN"}, HTTPStatus.OK
         )
     return make_response(
         {"message": "Invalid email or password"}, HTTPStatus.UNAUTHORIZED
@@ -47,35 +51,6 @@ def is_admin(db_client: DatabaseClient, email: str) -> bool:
     """
     role_info = db_client.get_role_by_email(email)
     return role_info.role == "admin"
-
-
-def create_session_token(db_client: DatabaseClient, user_id: int, email: str) -> str:
-    """
-    Generates a session token for a user and inserts it into the session_tokens table.
-
-    :param db_client: A DatabaseClient object.
-    :param user_id: The user's ID.
-    :param email: User's email.
-    :return: A session token.
-    """
-    expiration = datetime.datetime.utcnow() + datetime.timedelta(days=0, seconds=300)
-    payload = {
-        "exp": expiration,
-        "iat": datetime.datetime.utcnow(),
-        "sub": user_id,
-    }
-    session_token = jwt.encode(
-        payload, get_env_variable("SECRET_KEY"), algorithm="HS256"
-    )
-    db_client.add_new_session_token(
-        session_token=session_token, email=email, expiration=expiration
-    )
-
-    return session_token
-
-
-SessionTokenUserData = namedtuple("SessionTokenUserData", ["id", "email"])
-
 
 def generate_api_key() -> str:
     return uuid.uuid4().hex
@@ -104,14 +79,3 @@ def get_api_key_for_user(
         {"message": "Invalid email or password"}, HTTPStatus.UNAUTHORIZED
     )
 
-
-def refresh_session(db_client: DatabaseClient, old_token: str) -> Response:
-    user_info = db_client.get_session_token_info(old_token)
-    if not user_info:
-        return make_response({"message": "Invalid session token"}, HTTPStatus.FORBIDDEN)
-    db_client.delete_session_token(old_token)
-    token = create_session_token(db_client, user_info.id, user_info.email)
-    return make_response(
-        {"message": "Successfully refreshed session token", "data": token},
-        HTTPStatus.OK,
-    )
