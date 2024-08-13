@@ -1,0 +1,45 @@
+COLUMN	STANDARD	ADMIN
+name	VIEW	EDIT
+submitted_name	VIEW	EDIT
+description	VIEW	EDIT
+record_type	VIEW	EDIT
+source_url	VIEW	EDIT
+agency_supplied	VIEW	EDIT
+supplying_entity	VIEW	EDIT
+agency_originated	VIEW	EDIT
+originating_entity	VIEW	EDIT
+agency_aggregation	VIEW	EDIT
+coverage_start	VIEW	EDIT
+coverage_end	VIEW	EDIT
+source_last_updated	VIEW	EDIT
+retention_schedule	VIEW	EDIT
+detail_level	VIEW	EDIT
+number_of_records_available	VIEW	EDIT
+size	VIEW	EDIT
+access_type	VIEW	EDIT
+data_portal_type	VIEW	EDIT
+record_format	VIEW	EDIT
+update_method	VIEW	EDIT
+tags	VIEW	EDIT
+readme_url	VIEW	EDIT
+scraper_url	VIEW	EDIT
+data_source_created	VIEW	EDIT
+airtable_source_last_modified	VIEW	EDIT
+url_status	VIEW	EDIT
+rejection_note	VIEW	EDIT
+last_approval_editor	VIEW	EDIT
+agency_described_submitted	VIEW	EDIT
+agency_described_not_in_database	VIEW	EDIT
+approval_status	VIEW	EDIT
+record_type_other	VIEW	EDIT
+data_portal_type_other	VIEW	EDIT
+records_not_online	VIEW	EDIT
+data_source_request	VIEW	EDIT
+url_button	VIEW	EDIT
+tags_other	VIEW	EDIT
+access_note	VIEW	EDIT
+rejection_note		EDIT
+data_source_request		EDIT
+approval_status		EDIT
+airtable_uid		VIEW
+airtable_source_last_modified		EDIT
