@@ -288,7 +288,7 @@ div.links {
 }
 
 div.formats {
-	@apply overflow-hidden;
+	@apply overflow-hidden h-full;
 }
 
 /* .links {
