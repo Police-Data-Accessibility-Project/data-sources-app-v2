@@ -4,16 +4,15 @@
 	>
 		<TypeaheadInput
 			:id="TYPEAHEAD_ID"
-			class=""
 			:items="items"
-			placeholder="Enter a place"
+			:placeholder="placeholder ?? 'Enter a place'"
 			@select-item="onSelectRecord"
 			@on-input="fetchTypeaheadResults"
 		>
 			<!-- Pass label as slot to typeahead -->
 			<template #label>
 				<label class="col-span-2" :for="TYPEAHEAD_ID">
-					<h4 class="uppercase">Location</h4>
+					<h4 class="uppercase">Search location</h4>
 				</label>
 			</template>
 		</TypeaheadInput>
@@ -29,7 +28,7 @@
 		@submit="submit"
 	>
 		<Button :disabled="!selectedRecord" intent="primary" type="submit">
-			Search
+			{{ buttonCopy ?? 'Search' }}
 		</Button>
 	</Form>
 </template>
@@ -44,9 +43,10 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 
-// const { isSingleColumn } = defineProps({
-// 	isSingleColumn: Boolean,
-// });
+const { buttonCopy } = defineProps({
+	buttonCopy: String,
+	placeholder: String,
+});
 
 const emit = defineEmits('searched');
 

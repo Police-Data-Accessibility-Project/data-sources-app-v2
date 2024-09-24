@@ -67,14 +67,11 @@
 
 			<transition>
 				<div v-if="isSearchShown" class="@container">
-					<h4 class="w-full">Search location</h4>
-					<div
-						class="border-solid border-2 border-neutral-500 p-3 w-full md:w-max"
-					>
-						{{ getLocationText(searchData) }}
-					</div>
-
-					<SearchForm @searched="isSearchShown = false" />
+					<SearchForm
+						:placeholder="getLocationText(searchData)"
+						button-copy="Update search"
+						@searched="isSearchShown = false"
+					/>
 				</div>
 			</transition>
 		</aside>
