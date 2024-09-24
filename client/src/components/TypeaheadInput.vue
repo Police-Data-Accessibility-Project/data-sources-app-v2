@@ -63,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watchEffect } from 'vue';
+import { ref, computed, watchEffect, onMounted, onUnmounted } from 'vue';
 import statesToAbbreviations from '@/util/statesToAbbreviations';
 
 /* Props and emits */
@@ -96,18 +96,30 @@ const isListOpen = computed(
 
 watchEffect(() => {
 	if (inputRef.value) {
-		document.documentElement.style.setProperty(
-			'--typeaheadBottom',
-			inputRef.value.offsetTop + inputRef.value.offsetHeight + 'px',
-		);
-		document.documentElement.style.setProperty(
-			'--typeaheadListWidth',
-			inputRef.value.offsetWidth + 'px',
-		);
+		setInputPositionForList();
 	}
 });
 
+onMounted(() => {
+	window.addEventListener('resize', setInputPositionForList);
+});
+
+onUnmounted(() => {
+	window.removeEventListener('resize', setInputPositionForList);
+});
+
 /* Methods */
+function setInputPositionForList() {
+	console.debug('setInputPositionForList');
+	document.documentElement.style.setProperty(
+		'--typeaheadBottom',
+		inputRef.value.offsetTop + inputRef.value.offsetHeight + 'px',
+	);
+	document.documentElement.style.setProperty(
+		'--typeaheadListWidth',
+		inputRef.value.offsetWidth + 'px',
+	);
+}
 function onInput(e) {
 	emit('onInput', e);
 }
@@ -222,7 +234,7 @@ function clearInput() {
 }
 
 .pdap-typeahead-list-item {
-	@apply w-full mt-1 max-w-[unset] p-2 flex items-center gap-6 text-sm @md:text-lg;
+	@apply mt-1 max-w-[unset] p-2 flex items-center gap-6 text-sm @md:text-lg;
 }
 
 .pdap-typeahead-list-item .locale-type {
