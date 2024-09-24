@@ -204,7 +204,7 @@ h6 {
 }
 
 .heading-titles {
-	@apply w-full h-14 items-center grid gap-1 [&>*]:text-[.7rem] [&>*]:md:text-med [&>*]:lg:text-lg;
+	@apply w-full items-center grid gap-1 gap-y-3 [&>*]:text-[.7rem] [&>*]:md:text-med [&>*]:lg:text-lg p-2 border-solid border-neutral-300 border-2 lg:border-none;
 }
 
 h4.formats {
@@ -222,17 +222,6 @@ h4.formats {
 .agency-row * {
 	@apply [&>*]:text-sm [&>*]:md:text-med [&>*]:lg:text-lg;
 }
-
-/* @media (width >= 640px) {
-	.heading-titles {
-		grid-template-areas: 'name range formats links';
-	}
-
-	.agency-row {
-		grid-template-areas: 'name range formats' 'links links links';
-		grid-template-rows: repeat(2, auto);
-	}
-} */
 
 @media (width >= 1024px) {
 	.heading-titles,
