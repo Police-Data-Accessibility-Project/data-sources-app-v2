@@ -56,7 +56,9 @@
 		</section>
 
 		<!-- Aside for handling filtering and saved searches -->
-		<aside class="w-full row-start-1 row-end-2 xl:col-start-2 xl:col-end-3">
+		<aside
+			class="w-full row-start-1 row-end-2 xl:col-start-2 xl:col-end-3 relative z-20"
+		>
 			<Button
 				class="mb-2 w-full xl:hidden"
 				intent="secondary"

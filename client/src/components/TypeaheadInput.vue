@@ -205,15 +205,15 @@ function clearInput() {
 }
 
 .pdap-typeahead-list {
-	@apply absolute top-full w-full;
+	@apply absolute top-full w-full z-50;
 }
 
 .pdap-typeahead-list-item {
-	@apply w-full mt-1 max-w-[unset] p-2 flex items-center gap-6;
+	@apply w-full mt-1 max-w-[unset] p-2 flex items-center gap-6 text-sm @md:text-lg;
 }
 
 .pdap-typeahead-list-item .locale-type {
-	@apply border-solid border-2 border-neutral-700 dark:border-neutral-400 rounded-full text-neutral-700 dark:text-neutral-400 text-sm px-2 py-1;
+	@apply border-solid border-2 border-neutral-700 dark:border-neutral-400 rounded-full text-neutral-700 dark:text-neutral-400 text-xs @md:text-sm px-2 py-1;
 }
 
 .pdap-typeahead-list-item .select {
