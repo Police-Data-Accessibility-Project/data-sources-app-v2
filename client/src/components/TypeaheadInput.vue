@@ -63,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watchEffect } from 'vue';
 import statesToAbbreviations from '@/util/statesToAbbreviations';
 
 /* Props and emits */
@@ -93,6 +93,19 @@ const isListOpen = computed(
 		(itemsToDisplay.value?.length && inputRef?.value?.value) ||
 		(typeof itemsToDisplay.value === 'undefined' && input.value.length > 1),
 );
+
+watchEffect(() => {
+	if (inputRef.value) {
+		document.documentElement.style.setProperty(
+			'--typeaheadBottom',
+			inputRef.value.offsetTop + inputRef.value.offsetHeight + 'px',
+		);
+		document.documentElement.style.setProperty(
+			'--typeaheadListWidth',
+			inputRef.value.offsetWidth + 'px',
+		);
+	}
+});
 
 /* Methods */
 function onInput(e) {
@@ -182,7 +195,7 @@ function clearInput() {
 
 <style>
 .pdap-typeahead {
-	@apply relative leading-normal w-full flex flex-col;
+	@apply leading-normal w-full flex flex-col;
 }
 
 .pdap-typeahead label {
@@ -205,7 +218,7 @@ function clearInput() {
 }
 
 .pdap-typeahead-list {
-	@apply absolute top-full w-full z-50;
+	@apply absolute w-[var(--typeaheadListWidth)] top-[var(--typeaheadBottom)] z-50 overflow-scroll;
 }
 
 .pdap-typeahead-list-item {
