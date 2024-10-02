@@ -113,7 +113,7 @@ export const useSearchData = defineBasicLoader(
 		// If query matches cached query, return cached results
 		if (_isEqual(params.value, route.query) && results.value) {
 			const r = groupResultsByAgency(results.value);
-			setMostRecentSearchIds(getAllIdsSearched(r));
+			// setMostRecentSearchIds(getAllIdsSearched(r));
 
 			return {
 				results: r,
@@ -134,7 +134,7 @@ export const useSearchData = defineBasicLoader(
 		}
 
 		const r = groupResultsByAgency(res);
-		setMostRecentSearchIds(getAllIdsSearched(r));
+		// setMostRecentSearchIds(getAllIdsSearched(r));
 
 		return {
 			results: r,
@@ -158,6 +158,7 @@ const isSearchShown = ref(false);
 // lifecycle methods
 onMounted(() => {
 	onWindowWidthSetIsSearchShown();
+	setMostRecentSearchIds(getAllIdsSearched(searchData.value.results));
 	window.addEventListener('resize', onWindowWidthSetIsSearchShown);
 });
 

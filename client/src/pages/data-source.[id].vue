@@ -185,31 +185,23 @@
 // Data loader
 import { defineBasicLoader } from 'unplugin-vue-router/data-loaders/basic';
 import { useSearchStore } from '@/stores/search';
+import { useRoute } from 'vue-router';
 
-const { getDataSource, mostRecentSearchIds, setMostRecentSearchIds } =
-	useSearchStore();
+const { getDataSource } = useSearchStore();
 
 export const useDataSourceData = defineBasicLoader(
 	'/data-source/:id',
 	async (route) => {
-		const currentIdIndex = mostRecentSearchIds.indexOf(route.params.id);
-		const nextIdIndex =
-			currentIdIndex < mostRecentSearchIds.length ? currentIdIndex + 1 : null;
-		const previousIdIndex = currentIdIndex > 0 ? currentIdIndex - 1 : null;
 		const results = await getDataSource(route.params.id);
 
-		return {
-			dataSource: results?.data?.data,
-			nextIdIndex,
-			previousIdIndex,
-			currentIdIndex,
-		};
+		return results?.data?.data;
 	},
 );
 </script>
 
 <script setup>
 import { Button, RecordTypeIcon } from 'pdap-design-system';
+import { Spinner } from 'pdap-design-system';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faLink } from '@fortawesome/free-solid-svg-icons';
 
@@ -217,13 +209,22 @@ import { DATA_SOURCE_UI_SHAPE } from '@/util/constants';
 import formatDateForSearchResults from '@/util/formatDate';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
-import { Spinner } from 'pdap-design-system';
+const route = useRoute();
+const { mostRecentSearchIds } = useSearchStore();
 
-const { data, isLoading, error } = useDataSourceData();
+const currentIdIndex = computed(() =>
+	mostRecentSearchIds.indexOf(route.params.id),
+);
+const nextIdIndex = computed(() =>
+	currentIdIndex.value < mostRecentSearchIds.length
+		? currentIdIndex.value + 1
+		: null,
+);
+const previousIdIndex = computed(() =>
+	currentIdIndex.value > 0 ? currentIdIndex.value - 1 : null,
+);
 
-const dataSource = computed(() => data.value.dataSource);
-const previousIdIndex = computed(() => data.value.previousIdIndex);
-const nextIdIndex = computed(() => data.value.nextIdIndex);
+const { data: dataSource, isLoading, error } = useDataSourceData();
 
 const isDescriptionExpanded = ref(false);
 const showExpandDescriptionButton = ref(false);
@@ -235,7 +236,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-	setMostRecentSearchIds([]);
 	window.removeEventListener('resize', handleShowMoreButton);
 });
 
