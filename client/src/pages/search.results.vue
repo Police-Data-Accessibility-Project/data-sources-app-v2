@@ -43,7 +43,7 @@
 				</div>
 				<Button
 					class="hidden sm:block max-h-12"
-					intent="secondary"
+					intent="primary"
 					@click="() => console.log('Follow button pressed')"
 				>
 					Follow
@@ -63,7 +63,7 @@
 		>
 			<Button
 				class="mb-2 w-full xl:hidden"
-				intent="secondary"
+				intent="primary"
 				@click="isSearchShown = !isSearchShown"
 			>
 				{{ isSearchShown ? 'Hide search' : 'Show search' }}
@@ -176,9 +176,12 @@ function onWindowWidthSetIsSearchShown() {
 </script>
 
 <style scoped>
+@import url(../main.css);
+@tailwind utilities;
+@tailwind components;
+
 h1 {
-	/* TODO: decouple heading styling from heading level in design-system (or at least provide classes that can perform these overrides more efficiently) */
-	@apply text-brand-wine dark:text-neutral-500 font-semibold text-lg tracking-[.07em] uppercase;
+	@apply like-h4 mb-4;
 }
 
 .v-enter-active,

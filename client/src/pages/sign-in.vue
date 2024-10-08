@@ -71,6 +71,7 @@ const FORM_SCHEMA = [
 	},
 	{
 		autofill: 'password',
+		class: 'inputs',
 		'data-test': 'password',
 		id: 'password',
 		name: 'password',

@@ -18,7 +18,7 @@
 		</TypeaheadInput>
 	</div>
 
-	<h4 class="w-full mt-8">Types of data</h4>
+	<h4 class="w-full mt-8 like-h4">Types of data</h4>
 	<Form
 		id="pdap-data-sources-search"
 		ref="formRef"
@@ -31,6 +31,14 @@
 			{{ buttonCopy ?? 'Search' }}
 		</Button>
 	</Form>
+	<div>
+		<p class="text-lg mt-8 mb-4">
+			If you have a question to answer, we can help
+		</p>
+		<RouterLink class="pdap-button-primary" to="/request">
+			Make a Request
+		</RouterLink>
+	</div>
 </template>
 
 <script setup>
@@ -39,7 +47,7 @@ import TypeaheadInput from '@/components/TypeaheadInput.vue';
 import axios from 'axios';
 import { ref } from 'vue';
 import { debounce as _debounce } from 'lodash';
-import { useRouter } from 'vue-router';
+import { useRouter, RouterLink } from 'vue-router';
 
 const router = useRouter();
 
