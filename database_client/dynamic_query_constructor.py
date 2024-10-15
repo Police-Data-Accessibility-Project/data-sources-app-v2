@@ -17,7 +17,10 @@ from database_client.db_client_dataclasses import (
     WhereMapping,
 )
 from database_client.subquery_logic import SubqueryParameters
-from database_client.models import SQL_ALCHEMY_TABLE_REFERENCE, convert_to_column_reference
+from database_client.models import (
+    SQL_ALCHEMY_TABLE_REFERENCE,
+    convert_to_column_reference,
+)
 from utilities.enums import RecordCategories
 
 TableColumn = namedtuple("TableColumn", ["table", "column"])
@@ -222,7 +225,7 @@ class DynamicQueryConstructor:
         base_query = sql.SQL(
             """
             SELECT
-                data_sources.airtable_uid,
+                data_sources.id,
                 data_sources.name AS data_source_name,
                 data_sources.description,
                 record_types.name AS record_type,
@@ -238,9 +241,9 @@ class DynamicQueryConstructor:
             FROM
                 agency_source_link
             INNER JOIN
-                data_sources ON agency_source_link.data_source_uid = data_sources.airtable_uid
+                data_sources ON agency_source_link.data_source_id = data_sources.id
             INNER JOIN
-                agencies ON agency_source_link.agency_uid = agencies.airtable_uid
+                agencies ON agency_source_link.agency_id = agencies.id
             INNER JOIN
 				locations_expanded on agencies.location_id = locations_expanded.id
             INNER JOIN 
@@ -397,6 +400,7 @@ class DynamicQueryConstructor:
         offset: Optional[int] = None,
         order_by: Optional[OrderByParameters] = None,
         subquery_parameters: Optional[list[SubqueryParameters]] = [],
+        alias_mappings: Optional[dict[str, str]] = None,
     ) -> Callable:
         """
         Creates a SELECT query for a relation (table or view)
@@ -432,6 +436,9 @@ class DynamicQueryConstructor:
             primary_relation_columns = [SQL_ALCHEMY_TABLE_REFERENCE[relation]]
         else:
             primary_relation_columns = columns
+
+        if alias_mappings is not None:
+            DynamicQueryConstructor.apply_alias_mappings(columns, alias_mappings)
 
         base_query = (
             lambda: select(*primary_relation_columns)
@@ -554,3 +561,7 @@ class DynamicQueryConstructor:
             """
         ).format(url=sql.Literal(url))
         return query
+
+    @staticmethod
+    def apply_alias_mappings(columns, alias_mappings):
+        pass

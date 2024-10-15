@@ -45,6 +45,7 @@ def get_agencies(
             entry_name="agencies",
             relation=Relations.AGENCIES_EXPANDED.value,
             db_client_method=DatabaseClient.get_agencies,
+            db_client_additional_args={"build_metadata": True},
         ),
         page=dto.page,
     )
@@ -62,7 +63,6 @@ def get_agency_by_id(
             db_client_method=DatabaseClient.get_agencies,
         ),
         id=dto.resource_id,
-        id_column_name="airtable_uid",
     )
 
 
@@ -75,10 +75,9 @@ def get_location_id(db_client: DatabaseClient, location_info: LocationInfoDTO):
     location_info_dict = asdict(location_info)
     location_info_where_mappings = WhereMapping.from_dict(location_info_dict)
     # Get location id
-    results = db_client.get_location_id(where_mappings=location_info_where_mappings)
-    location_exists = len(results) > 0
-    if location_exists:
-        return results[0]["id"]
+    location_id = db_client.get_location_id(where_mappings=location_info_where_mappings)
+    if location_id is not None:
+        return location_id
     _raise_if_not_locality(location_info, location_info_dict)
 
     # In the case of a nonexistent locality, this can be added,
@@ -92,9 +91,7 @@ def get_location_id(db_client: DatabaseClient, location_info: LocationInfoDTO):
             "county_id": county_id,
         }
     )
-    return db_client.get_location_id(where_mappings=location_info_where_mappings)[0][
-        "id"
-    ]
+    return db_client.get_location_id(where_mappings=location_info_where_mappings)
 
 
 def _raise_if_not_locality(location_info, location_info_dict):
@@ -207,7 +204,7 @@ def update_agency(
             db_client_method=DatabaseClient.update_agency,
         ),
         entry=entry_data,
-        entry_id=agency_id,
+        entry_id=int(agency_id),
         pre_update_method_with_parameters=deferred_function,
     )
 
@@ -223,5 +220,5 @@ def delete_agency(
             relation=Relations.AGENCIES.value,
             db_client_method=DatabaseClient.delete_agency,
         ),
-        id_info=IDInfo(id_column_name="airtable_uid", id_column_value=agency_id),
+        id_info=IDInfo(id_column_value=int(agency_id)),
     )

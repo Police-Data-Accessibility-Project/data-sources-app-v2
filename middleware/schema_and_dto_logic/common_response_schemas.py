@@ -13,7 +13,7 @@ class MessageSchema(Schema):
     message = fields.String(
         required=True,
         metadata={
-            "description": "The success message",
+            "description": "A message returned in the response",
             "source": SourceMappingEnum.JSON,
         },
     )
@@ -30,10 +30,10 @@ class IDAndMessageSchema(MessageSchema):
 
 
 class GetManyResponseSchemaBase(MessageSchema):
-    count = fields.Integer(
+    metadata = fields.Dict(
         required=True,
         metadata={
-            "description": "The total number of results",
+            "description": "Metadata of the results",
             "source": SourceMappingEnum.JSON,
         },
     )

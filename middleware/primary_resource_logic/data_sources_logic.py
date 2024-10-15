@@ -22,10 +22,14 @@ from middleware.dynamic_request_logic.supporting_classes import (
 from middleware.enums import Relations
 from middleware.schema_and_dto_logic.common_schemas_and_dtos import (
     GetManyBaseDTO,
-    EntryDataRequestDTO,
+    EntryCreateUpdateRequestDTO,
     GetByIDBaseDTO,
 )
 from middleware.common_response_formatting import format_list_response
+from middleware.schema_and_dto_logic.primary_resource_schemas.data_sources_schemas import (
+    DataSourceEntryDataPostDTO,
+)
+from middleware.util import dataclass_to_filtered_dict
 
 RELATION = Relations.DATA_SOURCES.value
 SUBQUERY_PARAMS = [
@@ -65,6 +69,7 @@ def get_data_sources_wrapper(
                         column="approval_status", value=dto.approval_status.value
                     )
                 ],
+                "build_metadata": True,
             },
             entry_name="data source",
             subquery_parameters=SUBQUERY_PARAMS,
@@ -87,7 +92,7 @@ def data_source_by_id_wrapper(
             subquery_parameters=SUBQUERY_PARAMS,
         ),
         id=dto.resource_id,
-        id_column_name="airtable_uid",
+        id_column_name="id",
     )
 
 
@@ -114,15 +119,15 @@ def delete_data_source_wrapper(
             entry_name="data source",
         ),
         id_info=IDInfo(
-            id_column_name="airtable_uid",
-            id_column_value=data_source_id,
+            id_column_name="id",
+            id_column_value=int(data_source_id),
         ),
     )
 
 
 def update_data_source_wrapper(
     db_client: DatabaseClient,
-    dto: EntryDataRequestDTO,
+    dto: EntryCreateUpdateRequestDTO,
     access_info: AccessInfo,
     data_source_id: str,
 ) -> Response:
@@ -140,7 +145,7 @@ def update_data_source_wrapper(
 
 
 def add_new_data_source_wrapper(
-    db_client: DatabaseClient, dto: EntryDataRequestDTO, access_info: AccessInfo
+    db_client: DatabaseClient, dto: DataSourceEntryDataPostDTO, access_info: AccessInfo
 ) -> Response:
     return post_entry(
         middleware_parameters=MiddlewareParameters(
@@ -150,5 +155,5 @@ def add_new_data_source_wrapper(
             relation=RELATION,
             db_client_method=DatabaseClient.add_new_data_source,
         ),
-        entry=dto.entry_data,
+        entry=dataclass_to_filtered_dict(dto.entry_data),
     )

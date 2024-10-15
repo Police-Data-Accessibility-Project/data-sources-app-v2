@@ -41,16 +41,13 @@ class SubqueryParameterManager:
     """
     Consolidates and manages the retrieval of subquery parameters
     """
+
     @staticmethod
     def get_subquery_params(
-            relation: Relations,
-            linking_column: str,
-            columns: list[str] = None
+        relation: Relations, linking_column: str, columns: list[str] = None
     ) -> SubqueryParameters:
         return SubqueryParameters(
-            relation_name=relation.value,
-            linking_column=linking_column,
-            columns=columns
+            relation_name=relation.value, linking_column=linking_column, columns=columns
         )
 
     agencies = partialmethod(
@@ -63,5 +60,5 @@ class SubqueryParameterManager:
         get_subquery_params,
         relation=Relations.DATA_SOURCES_EXPANDED,
         linking_column="data_sources",
-        columns=["airtable_uid", "submitted_name"],
+        columns=["id", "submitted_name"],
     )

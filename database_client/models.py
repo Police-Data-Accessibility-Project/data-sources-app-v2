@@ -25,7 +25,7 @@ from sqlalchemy.dialects.postgresql import (
     ENUM as pgEnum,
     JSON,
 )
-from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -110,6 +110,13 @@ DetailLevelLiteral = Literal[
 ]
 AccessTypeLiteral = Literal["Web page", "API", "Download"]
 UpdateMethodLiteral = Literal["Insert", "No updates", "Overwrite"]
+RequestUrgencyLiteral = Literal[
+    "Urgent (Less than a week)",
+    "Somewhat urgent (Less than a month)",
+    "Not urgent (A few months)",
+    "Long-term (6 months or more)",
+    "Indefinite/Unknown",
+]
 
 text = Annotated[Text, None]
 timestamp_tz = Annotated[
@@ -130,27 +137,71 @@ class Base(DeclarativeBase):
         str_255: String(255),
     }
 
+    @hybrid_method
+    def to_dict(cls, subquery_parameters=[]):
+        # Calls the class's __iter__ implementation
+        dict_result = dict(cls)
+        keyorder = cls.__mapper__.column_attrs.items()
+
+        for param in subquery_parameters:
+            if param.linking_column not in dict_result:
+                dict_result[param.linking_column] = []
+
+        sorted_dict = {
+            col: dict_result[col] for col, descriptor in keyorder if col in dict_result
+        }
+        sorted_dict.update(dict_result)
+
+        return sorted_dict
+
+
+class CountMetadata:
+    @hybrid_method
+    def count(
+        cls,
+        data: list[dict],
+        **kwargs,
+    ) -> int:
+        return {"count": len(data)}
+
+
+class CountSubqueryMetadata:
+    @hybrid_method
+    def count_subquery(
+        cls, data: list[dict], subquery_parameters, **kwargs
+    ) -> Optional[dict[str, int]]:
+        if not subquery_parameters or len(data) != 1:
+            return None
+
+        subquery_counts = {}
+        for subquery_param in subquery_parameters:
+            linking_column = subquery_param.linking_column
+            key = linking_column + "_count"
+            count = len(data[0][linking_column])
+            subquery_counts.update({key: count})
+
+        return subquery_counts
+
 
 class AgencySourceLink(Base):
     __tablename__ = "agency_source_link"
 
     link_id: Mapped[int]
-    data_source_uid: Mapped[str] = mapped_column(
-        ForeignKey("public.data_sources.airtable_uid"), primary_key=True
+    data_source_id: Mapped[str] = mapped_column(
+        ForeignKey("public.data_sources.id"), primary_key=True
     )
-    agency_uid: Mapped[str] = mapped_column(
-        ForeignKey("public.agencies.airtable_uid"), primary_key=True
+    agency_id: Mapped[str] = mapped_column(
+        ForeignKey("public.agencies.id"), primary_key=True
     )
 
 
-class Agency(Base):
+class Agency(Base, CountMetadata):
     __tablename__ = Relations.AGENCIES.value
 
     def __iter__(self):
         yield from iter_with_special_cases(self)
 
-
-    airtable_uid: Mapped[str] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     submitted_name: Mapped[Optional[str]]
     homepage_url: Mapped[Optional[str]]
@@ -188,7 +239,6 @@ class AgencyExpanded(Base):
     def __iter__(self):
         yield from iter_with_special_cases(self)
 
-
     # Define columns as per the view with refined data types
     name = Column(String, nullable=False)
     submitted_name = Column(String, nullable=False)
@@ -203,7 +253,7 @@ class AgencyExpanded(Base):
     lat = Column(Float)
     lng = Column(Float)
     defunct_year = Column(String)
-    airtable_uid = Column(String, primary_key=True)  # Primary key
+    id = Column(Integer, primary_key=True)  # Primary key
     agency_type = Column(String)
     multi_agency = Column(Boolean)
     zip_code = Column(String)
@@ -229,7 +279,6 @@ class County(Base):
     lng: Mapped[Optional[float]]
     population: Mapped[Optional[int]]
     agencies: Mapped[Optional[text]]
-    airtable_uid: Mapped[Optional[text]]
     airtable_county_last_modified: Mapped[Optional[text]]
     airtable_county_created: Mapped[Optional[text]]
     state_id: Mapped[Optional[int]] = mapped_column(ForeignKey("public.us_states.id"))
@@ -255,7 +304,7 @@ class Location(Base):
     locality_id: Mapped[int] = mapped_column(ForeignKey("public.localities.id"))
 
 
-class LocationExpanded(Base):
+class LocationExpanded(Base, CountMetadata):
     __tablename__ = Relations.LOCATIONS_EXPANDED.value
     __table_args__ = {"extend_existing": True}
 
@@ -272,6 +321,13 @@ class LocationExpanded(Base):
     county_id = Column(Integer)
     locality_id = Column(Integer)
 
+class ExternalAccount(Base):
+    __tablename__ = Relations.EXTERNAL_ACCOUNTS.value
+    row_id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("public.users.id"))
+    account_type: Mapped[ExternalAccountTypeLiteral]
+    account_identifier: Mapped[str_255]
+    linked_at: Mapped[Optional[timestamp]] = mapped_column(server_default=func.now())
 
 class USState(Base):
     __tablename__ = Relations.US_STATES.value
@@ -281,7 +337,7 @@ class USState(Base):
     state_name: Mapped[str] = mapped_column(String(255))
 
 
-class DataRequest(Base):
+class DataRequest(Base, CountMetadata, CountSubqueryMetadata):
     __tablename__ = Relations.DATA_REQUESTS.value
 
     def __iter__(self):
@@ -289,15 +345,28 @@ class DataRequest(Base):
         special_cases = {
             "id": lambda instance: [
                 ("id", instance.id),
-                ("data_source_ids", instance.data_source_ids),
+                (
+                    (
+                        "data_source_ids",
+                        instance.data_source_ids if instance.data_source_ids else None,
+                    )
+                ),
             ],
             "data_sources": lambda instance: [
-                ("data_sources", [dict(source) for source in instance.data_sources])
+                (
+                    (
+                        "data_sources",
+                        (
+                            [source.to_dict() for source in instance.data_sources]
+                            if instance.data_sources
+                            else None
+                        ),
+                    )
+                )
             ],
         }
 
         yield from iter_with_special_cases(self, special_cases=special_cases)
-
 
     id: Mapped[int] = mapped_column(primary_key=True)
     submission_notes: Mapped[Optional[text]]
@@ -309,7 +378,6 @@ class DataRequest(Base):
     date_created: Mapped[timestamp_tz]
     date_status_last_changed: Mapped[Optional[timestamp_tz]]
     creator_user_id: Mapped[Optional[int]]
-    github_issue_url: Mapped[Optional[text]]
     internal_notes: Mapped[Optional[text]]
     record_types_required: Mapped[Optional[ARRAY[RecordTypeLiteral]]] = mapped_column(
         ARRAY(Enum(*get_args(RecordTypeLiteral), name="record_type"), as_tuple=True)
@@ -317,18 +385,29 @@ class DataRequest(Base):
     pdap_response: Mapped[Optional[text]]
     coverage_range: Mapped[Optional[daterange]]
     data_requirements: Mapped[Optional[text]]
+    request_urgency: Mapped[RequestUrgencyLiteral] = mapped_column(
+        server_default="Indefinite/Unknown"
+    )
 
     data_sources: Mapped[list["DataSourceExpanded"]] = relationship(
         argument="DataSourceExpanded",
         secondary="public.link_data_sources_data_requests",
         primaryjoin="DataRequest.id == LinkDataSourceDataRequest.request_id",
-        secondaryjoin="DataSourceExpanded.airtable_uid == LinkDataSourceDataRequest.source_id",
+        secondaryjoin="DataSourceExpanded.id == LinkDataSourceDataRequest.data_source_id",
         lazy="joined",
     )
 
     @hybrid_property
-    def data_source_ids(self) -> list[str]:
-        return [source.airtable_uid for source in self.data_sources]
+    def data_source_ids(self) -> list[int]:
+        return [source.id for source in self.data_sources]
+
+
+class DataRequestExpanded(DataRequest):
+    id = mapped_column(None, ForeignKey("public.data_requests.id"), primary_key=True)
+
+    __tablename__ = Relations.DATA_REQUESTS_EXPANDED.value
+    github_issue_url: Mapped[Optional[text]]
+    github_issue_number: Mapped[Optional[int]]
 
 
 def iter_with_special_cases(instance, special_cases=None):
@@ -344,7 +423,8 @@ def iter_with_special_cases(instance, special_cases=None):
         if key in special_cases:
             mapped_key_value_pairs = special_cases[key](instance).copy()
             for mapped_key, mapped_value in mapped_key_value_pairs:
-                yield mapped_key, mapped_value
+                if mapped_value is not None:
+                    yield mapped_key, mapped_value
         else:
             # General case for other keys
             value = getattr(instance, key)
@@ -353,24 +433,30 @@ def iter_with_special_cases(instance, special_cases=None):
             yield key, value
 
 
-class DataSource(Base):
+class DataSource(Base, CountMetadata, CountSubqueryMetadata):
     __tablename__ = Relations.DATA_SOURCES.value
 
     def __iter__(self):
 
         special_cases = {
-            "airtable_uid": lambda instance: [
-                ("airtable_uid", instance.airtable_uid),
-                ("agency_ids", instance.agency_ids),
+            "id": lambda instance: [
+                ("id", instance.id),
+                ("agency_ids", instance.agency_ids if instance.agency_ids else None),
             ],
             "agencies": lambda instance: [
-                ("agencies", [dict(agency) for agency in instance.agencies])
+                (
+                    "agencies",
+                    (
+                        [agency.to_dict() for agency in instance.agencies]
+                        if instance.agencies
+                        else None
+                    ),
+                )
             ],
         }
         yield from iter_with_special_cases(self, special_cases)
 
-
-    airtable_uid: Mapped[str] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     submitted_name: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
@@ -418,25 +504,25 @@ class DataSource(Base):
     agencies: Mapped[list[AgencyExpanded]] = relationship(
         argument="AgencyExpanded",
         secondary="public.agency_source_link",
-        primaryjoin="AgencySourceLink.data_source_uid == DataSource.airtable_uid",
-        secondaryjoin="AgencySourceLink.agency_uid == AgencyExpanded.airtable_uid",
+        primaryjoin="AgencySourceLink.data_source_id == DataSource.id",
+        secondaryjoin="AgencySourceLink.agency_id == AgencyExpanded.id",
         lazy="joined",
     )
 
     @hybrid_property
     def agency_ids(self) -> list[str]:
-        return [agency.airtable_uid for agency in self.agencies]
+        return [agency.id for agency in self.agencies]
 
 
 class DataSourceExpanded(DataSource):
-    airtable_uid = mapped_column(
-        None, ForeignKey("public.data_sources.airtable_uid"), primary_key=True
+    id = mapped_column(
+        None, ForeignKey("public.data_sources.id"), primary_key=True
     )
 
     __tablename__ = Relations.DATA_SOURCES_EXPANDED.value
     __table_args__ = {
         "polymorphic_identity": "data_source_expanded",
-        "inherit_conditions": (DataSource.airtable_uid == airtable_uid),
+        "inherit_conditions": (DataSource.id == id),
     }
 
     record_type_name: Mapped[Optional[str]]
@@ -445,35 +531,32 @@ class DataSourceExpanded(DataSource):
 class DataSourceArchiveInfo(Base):
     __tablename__ = Relations.DATA_SOURCES_ARCHIVE_INFO.value
 
-    airtable_uid: Mapped[str] = mapped_column(
-        ForeignKey("public.data_sources.airtable_uid"), primary_key=True
+    data_source_id: Mapped[str] = mapped_column(
+        ForeignKey("public.data_sources.id"), primary_key=True
     )
     update_frequency: Mapped[Optional[str]]
     last_cached: Mapped[Optional[timestamp]]
     next_cached: Mapped[Optional[timestamp]]
 
 
-class ExternalAccount(Base):
-    __tablename__ = Relations.EXTERNAL_ACCOUNTS.value
-
-    row_id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("public.users.id"))
-    account_type: Mapped[ExternalAccountTypeLiteral]
-    account_identifier: Mapped[str_255]
-    linked_at: Mapped[Optional[timestamp]] = mapped_column(server_default=func.now())
-
-
 class LinkDataSourceDataRequest(Base):
     __tablename__ = Relations.LINK_DATA_SOURCES_DATA_REQUESTS.value
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    source_id: Mapped[text] = mapped_column(
-        ForeignKey("public.data_sources.airtable_uid")
+    data_source_id: Mapped[text] = mapped_column(
+        ForeignKey("public.data_sources.id")
     )
     request_id: Mapped[int] = mapped_column(ForeignKey("public.data_requests.id"))
 
+class DataRequestsGithubIssueInfo(Base):
+    __tablename__ = Relations.DATA_REQUESTS_GITHUB_ISSUE_INFO.value
 
-class LinkUserFollowedLocation(Base):
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    data_request_id: Mapped[int] = mapped_column(ForeignKey("public.data_requests.id"))
+    github_issue_url: Mapped[str]
+    github_issue_number: Mapped[int]
+
+class LinkUserFollowedLocation(Base, CountMetadata):
     __tablename__ = Relations.LINK_USER_FOLLOWED_LOCATION.value
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -535,6 +618,7 @@ SQL_ALCHEMY_TABLE_REFERENCE = {
     "agencies": Agency,
     "agencies_expanded": AgencyExpanded,
     "data_requests": DataRequest,
+    "data_requests_expanded": DataRequestExpanded,
     "data_sources": DataSource,
     "data_sources_expanded": DataSourceExpanded,
     "data_sources_archive_info": DataSourceArchiveInfo,
@@ -548,6 +632,8 @@ SQL_ALCHEMY_TABLE_REFERENCE = {
     "locations": Location,
     "locations_expanded": LocationExpanded,
     "link_user_followed_location": LinkUserFollowedLocation,
+    "external_accounts": ExternalAccount,
+    "data_requests_github_issue_info": DataRequestsGithubIssueInfo,
 }
 
 
