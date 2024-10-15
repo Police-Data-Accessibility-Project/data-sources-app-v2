@@ -26,38 +26,24 @@ exports[`TypeaheadInput > focuses input on arrow up from first list item 1`] = `
   <input autocomplete="off" class="pdap-typeahead-input" placeholder type="text">
   <ul class="pdap-typeahead-list">
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
       <span>
-        <strong>Lev</strong>elland Hockley TX
+        <strong>Lev</strong>antine
       </span>
-      <span class="locale-type">Locality</span>
-      <span class="select">Select</span>
     </li>
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
       <span>
-        <strong>Lev</strong>erett Franklin MA
+        <strong>Lev</strong>iathan
       </span>
-      <span class="locale-type">Locality</span>
-      <span class="select">Select</span>
     </li>
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
       <span>
-        <strong>Lev</strong>y FL
+        <strong>Lev</strong>i
       </span>
-      <span class="locale-type">County</span>
-      <span class="select">Select</span>
     </li>
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
-      <span>Bel<strong>lev</strong>iew Marion FL</span>
-      <span class="locale-type">Locality</span>
-      <span class="select">Select</span>
+      <span>
+        <strong>Lev</strong>ant
+      </span>
     </li>
   </ul>
 </div>
@@ -68,38 +54,24 @@ exports[`TypeaheadInput > focuses next list item on arrow down 1`] = `
   <input autocomplete="off" class="pdap-typeahead-input" placeholder type="text">
   <ul class="pdap-typeahead-list">
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
       <span>
-        <strong>Lev</strong>elland Hockley TX
+        <strong>Lev</strong>antine
       </span>
-      <span class="locale-type">Locality</span>
-      <span class="select">Select</span>
     </li>
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
       <span>
-        <strong>Lev</strong>erett Franklin MA
+        <strong>Lev</strong>iathan
       </span>
-      <span class="locale-type">Locality</span>
-      <span class="select">Select</span>
     </li>
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
       <span>
-        <strong>Lev</strong>y FL
+        <strong>Lev</strong>i
       </span>
-      <span class="locale-type">County</span>
-      <span class="select">Select</span>
     </li>
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
-      <span>Bel<strong>lev</strong>iew Marion FL</span>
-      <span class="locale-type">Locality</span>
-      <span class="select">Select</span>
+      <span>
+        <strong>Lev</strong>ant
+      </span>
     </li>
   </ul>
 </div>
@@ -110,38 +82,24 @@ exports[`TypeaheadInput > focuses previous list item on arrow up 1`] = `
   <input autocomplete="off" class="pdap-typeahead-input" placeholder type="text">
   <ul class="pdap-typeahead-list">
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
       <span>
-        <strong>Lev</strong>elland Hockley TX
+        <strong>Lev</strong>antine
       </span>
-      <span class="locale-type">Locality</span>
-      <span class="select">Select</span>
     </li>
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
       <span>
-        <strong>Lev</strong>erett Franklin MA
+        <strong>Lev</strong>iathan
       </span>
-      <span class="locale-type">Locality</span>
-      <span class="select">Select</span>
     </li>
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
       <span>
-        <strong>Lev</strong>y FL
+        <strong>Lev</strong>i
       </span>
-      <span class="locale-type">County</span>
-      <span class="select">Select</span>
     </li>
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
-      <!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-      <!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
-      <span>Bel<strong>lev</strong>iew Marion FL</span>
-      <span class="locale-type">Locality</span>
-      <span class="select">Select</span>
+      <span>
+        <strong>Lev</strong>ant
+      </span>
     </li>
   </ul>
 </div>

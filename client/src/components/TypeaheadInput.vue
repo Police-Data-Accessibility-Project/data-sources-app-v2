@@ -1,3 +1,4 @@
+<!-- TODO: Once this component is sufficiently generic, move to design-system? -->
 <template>
 	<div
 		:id="wrapperId"
@@ -38,13 +39,8 @@
 				@keydown.down.prevent="onArrowDown"
 				@keydown.up.prevent="onArrowUp"
 			>
-				<!-- This implementation is extremely coupled to the PDAP /search functionality. If we want to use it elsewhere, we'll need to develop a slot and/or render function mechanism instead -->
-				<!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
-				<span v-html="boldMatchText(formatText(item))" />
-				<span class="locale-type">
-					{{ item.type }}
-				</span>
-				<span class="select">Select</span>
+				<slot v-if="$slots.item" name="item" v-bind="item" />
+				<span v-else>{{ boldMatchText(item) }}</span>
 			</li>
 		</ul>
 		<ul
@@ -64,7 +60,6 @@
 
 <script setup>
 import { ref, computed, watchEffect, onMounted, onUnmounted } from 'vue';
-import statesToAbbreviations from '@/util/statesToAbbreviations';
 
 /* Props and emits */
 const props = defineProps({
@@ -77,6 +72,9 @@ const props = defineProps({
 	},
 	items: {
 		type: Array,
+	},
+	formatItemForDisplay: {
+		type: Function,
 	},
 });
 const emit = defineEmits(['onInput', 'onFocus', 'onBlur', 'selectItem']);
@@ -165,22 +163,13 @@ function onArrowUp() {
 }
 
 function selectItem(item) {
-	input.value = formatText(item);
+	input.value = props.formatItemForDisplay
+		? props.formatItemForDisplay(item)
+		: item;
 	inputRef.value.blur();
 	emit('selectItem', item);
 }
 
-function formatText(item) {
-	switch (item.type) {
-		case 'Locality':
-			return `${item.display_name} ${item.county} ${statesToAbbreviations.get(item.state)}`;
-		case 'County':
-			return `${item.display_name} ${statesToAbbreviations.get(item.state)}`;
-		case 'State':
-		default:
-			return item.display_name;
-	}
-}
 function escapeRegExp(string) {
 	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -202,6 +191,10 @@ function clearInput() {
 // 	inputRef.value.blur();
 // 	onBlur();
 // }
+
+defineExpose({
+	boldMatchText,
+});
 </script>
 
 <style>
@@ -238,10 +231,6 @@ function clearInput() {
 
 .pdap-typeahead-list-item .locale-type {
 	@apply border-solid border-2 border-neutral-700 dark:border-neutral-400 rounded-full text-neutral-700 dark:text-neutral-400 text-xs @md:text-sm px-2 py-1;
-}
-
-.pdap-typeahead-list-item .select {
-	@apply ml-auto;
 }
 
 .pdap-typeahead-list-item:focus,

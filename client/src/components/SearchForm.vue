@@ -4,6 +4,8 @@
 	>
 		<TypeaheadInput
 			:id="TYPEAHEAD_ID"
+			ref="typeaheadRef"
+			:format-item-for-display="formatText"
 			:items="items"
 			:placeholder="placeholder ?? 'Enter a place'"
 			@select-item="onSelectRecord"
@@ -14,6 +16,16 @@
 				<label class="col-span-2" :for="TYPEAHEAD_ID">
 					<h4 class="uppercase">Search location</h4>
 				</label>
+			</template>
+
+			<!-- Item to render passed as scoped slot -->
+			<template #item="item">
+				<!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
+				<span v-html="typeaheadRef?.boldMatchText(formatText(item))" />
+				<span class="locale-type">
+					{{ item.type }}
+				</span>
+				<span class="select">Select</span>
 			</template>
 		</TypeaheadInput>
 	</div>
@@ -62,7 +74,8 @@ import {
 import TypeaheadInput from '@/components/TypeaheadInput.vue';
 import axios from 'axios';
 import { ref } from 'vue';
-import { debounce as _debounce } from 'lodash';
+import statesToAbbreviations from '@/util/statesToAbbreviations';
+import _debounce from 'lodash/debounce';
 import { useRouter, RouterLink } from 'vue-router';
 
 const router = useRouter();
@@ -118,12 +131,25 @@ const CHECKBOXES = [
 const items = ref([]);
 const selectedRecord = ref();
 const formRef = ref();
+const typeaheadRef = ref();
 
 function submit(values) {
 	const params = new URLSearchParams(buildParams(values));
 	const path = `/search/results?${params.toString()}`;
 	router.push(path);
 	emit('searched');
+}
+
+function formatText(item) {
+	switch (item.type) {
+		case 'Locality':
+			return `${item.display_name} ${item.county} ${statesToAbbreviations.get(item.state)}`;
+		case 'County':
+			return `${item.display_name} ${statesToAbbreviations.get(item.state)}`;
+		case 'State':
+		default:
+			return item.display_name;
+	}
 }
 
 function buildParams(values) {
@@ -219,3 +245,9 @@ const fetchTypeaheadResults = _debounce(
 	{ leading: true, trailing: true },
 );
 </script>
+
+<style scoped>
+.select {
+	@apply ml-auto;
+}
+</style>

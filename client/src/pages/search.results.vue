@@ -11,7 +11,7 @@
 		<section class="w-full h-full">
 			<div class="flex flex-col sm:flex-row sm:justify-between mb-4">
 				<div>
-					<h1>
+					<h1 class="like-h4 mb-4">
 						Results {{ searchData && 'for ' + getLocationText(searchData) }}
 					</h1>
 					<nav
@@ -176,14 +176,6 @@ function onWindowWidthSetIsSearchShown() {
 </script>
 
 <style scoped>
-@import url(../main.css);
-@tailwind utilities;
-@tailwind components;
-
-h1 {
-	@apply like-h4 mb-4;
-}
-
 .v-enter-active,
 .v-leave-active {
 	transition: opacity 0.5s ease;
