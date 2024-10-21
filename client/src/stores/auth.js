@@ -73,17 +73,16 @@ export const useAuthStore = defineStore('auth', {
 			try {
 				const response = await axios.post(
 					REFRESH_SESSION_URL,
-					{ session_token: this.$state.accessToken.value },
+					{ session_token: this.$state.tokens.accessToken.value },
 					{
 						headers: {
 							...HEADERS,
-							authorization: `Bearer ${this.refreshToken.value}`,
+							authorization: `Bearer ${this.$state.tokens.refreshToken.value}`,
 						},
 					},
 				);
 				return this.parseTokenAndSetData(response);
 			} catch (error) {
-				console.error('refresh token', { error });
 				throw new Error(error.response?.data?.message);
 			}
 		},
