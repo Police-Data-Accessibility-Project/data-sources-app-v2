@@ -13,9 +13,7 @@
 		>
 			<!-- Pass label as slot to typeahead -->
 			<template #label>
-				<label class="col-span-2" :for="TYPEAHEAD_ID">
-					<h4 class="uppercase">Search location</h4>
-				</label>
+				<h4 class="uppercase">Search location</h4>
 			</template>
 
 			<!-- Item to render passed as scoped slot -->
@@ -215,6 +213,7 @@ function onSelectRecord(item) {
 	items.value = [];
 }
 
+// Tried to move this to a store, but it slows and gets glitchy when not used directly in the component. Investigate, since it's now repeated here and in /request
 const fetchTypeaheadResults = _debounce(
 	async (e) => {
 		try {
@@ -249,5 +248,9 @@ const fetchTypeaheadResults = _debounce(
 <style scoped>
 .select {
 	@apply ml-auto;
+}
+
+.locale-type {
+	@apply border-solid border-2 border-neutral-700 dark:border-neutral-400 rounded-full text-neutral-700 dark:text-neutral-400 text-xs @md:text-sm px-2 py-1;
 }
 </style>

@@ -6,7 +6,16 @@
 		class="pdap-typeahead"
 		:class="{ 'pdap-typeahead-expanded': isListOpen }"
 	>
-		<slot name="label" />
+		<label v-if="$slots.label" class="col-span-2" :for="id">
+			<slot name="label" />
+		</label>
+
+		<div v-if="$slots.error && error" class="pdap-input-error-message">
+			<!-- TODO: aria-aware error handling?? Not just here but in other input components as well? -->
+			<slot name="error" />
+		</div>
+		<div v-else-if="error" class="pdap-input-error-message">{{ error }}</div>
+
 		<input
 			:id="id"
 			ref="inputRef"
@@ -59,7 +68,14 @@
 </template>
 
 <script setup>
-import { ref, computed, watchEffect, onMounted, onUnmounted } from 'vue';
+import {
+	ref,
+	computed,
+	onMounted,
+	onUnmounted,
+	watch,
+	onBeforeUpdate,
+} from 'vue';
 
 /* Props and emits */
 const props = defineProps({
@@ -75,6 +91,9 @@ const props = defineProps({
 	},
 	formatItemForDisplay: {
 		type: Function,
+	},
+	error: {
+		type: String,
 	},
 });
 const emit = defineEmits(['onInput', 'onFocus', 'onBlur', 'selectItem']);
@@ -92,19 +111,24 @@ const isListOpen = computed(
 		(typeof itemsToDisplay.value === 'undefined' && input.value.length > 1),
 );
 
-watchEffect(() => {
-	if (inputRef.value) {
-		setInputPositionForList();
-	}
-});
-
+/* Lifecycle methods and listeners */
 onMounted(() => {
 	window.addEventListener('resize', setInputPositionForList);
 });
 
+onBeforeUpdate(setInputPositionForList);
+
 onUnmounted(() => {
 	window.removeEventListener('resize', setInputPositionForList);
 });
+
+/* Watch expressions */
+watch(
+	() => inputRef.value,
+	(ref) => {
+		if (ref) setInputPositionForList();
+	},
+);
 
 /* Methods */
 function setInputPositionForList() {
@@ -183,10 +207,10 @@ function clearInput() {
 // function getInput() {
 // 	return inputRef.value;
 // }
-// function focusInput() {
-// 	inputRef.value.focus();
-// 	onFocus();
-// }
+function focusInput() {
+	inputRef.value.focus();
+	onFocus();
+}
 // function blurInput() {
 // 	inputRef.value.blur();
 // 	onBlur();
@@ -194,6 +218,8 @@ function clearInput() {
 
 defineExpose({
 	boldMatchText,
+	clearInput,
+	focusInput,
 });
 </script>
 
@@ -227,10 +253,6 @@ defineExpose({
 
 .pdap-typeahead-list-item {
 	@apply mt-1 max-w-[unset] p-2 flex items-center gap-6 text-sm @md:text-lg;
-}
-
-.pdap-typeahead-list-item .locale-type {
-	@apply border-solid border-2 border-neutral-700 dark:border-neutral-400 rounded-full text-neutral-700 dark:text-neutral-400 text-xs @md:text-sm px-2 py-1;
 }
 
 .pdap-typeahead-list-item:focus,

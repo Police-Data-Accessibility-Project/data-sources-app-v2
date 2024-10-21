@@ -2,6 +2,7 @@
 
 exports[`TypeaheadInput > emits onBlur event 1`] = `
 <div class="pdap-typeahead" id="undefined_wrapper">
+  <label class="col-span-2"></label>
   <input autocomplete="off" class="pdap-typeahead-input" placeholder type="text">
   <!--v-if-->
 </div>
@@ -9,6 +10,7 @@ exports[`TypeaheadInput > emits onBlur event 1`] = `
 
 exports[`TypeaheadInput > emits onFocus event and clears input if no items 1`] = `
 <div class="pdap-typeahead" id="undefined_wrapper">
+  <label class="col-span-2"></label>
   <input autocomplete="off" class="pdap-typeahead-input" placeholder type="text">
   <!--v-if-->
 </div>
@@ -16,6 +18,7 @@ exports[`TypeaheadInput > emits onFocus event and clears input if no items 1`] =
 
 exports[`TypeaheadInput > emits onInput event 1`] = `
 <div class="pdap-typeahead" id="undefined_wrapper">
+  <label class="col-span-2"></label>
   <input autocomplete="off" class="pdap-typeahead-input" placeholder type="text">
   <!--v-if-->
 </div>
@@ -23,6 +26,7 @@ exports[`TypeaheadInput > emits onInput event 1`] = `
 
 exports[`TypeaheadInput > focuses input on arrow up from first list item 1`] = `
 <div class="pdap-typeahead" id="undefined_wrapper">
+  <label class="col-span-2"></label>
   <input autocomplete="off" class="pdap-typeahead-input" placeholder type="text">
   <ul class="pdap-typeahead-list">
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
@@ -51,6 +55,7 @@ exports[`TypeaheadInput > focuses input on arrow up from first list item 1`] = `
 
 exports[`TypeaheadInput > focuses next list item on arrow down 1`] = `
 <div class="pdap-typeahead" id="undefined_wrapper">
+  <label class="col-span-2"></label>
   <input autocomplete="off" class="pdap-typeahead-input" placeholder type="text">
   <ul class="pdap-typeahead-list">
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">
@@ -79,6 +84,7 @@ exports[`TypeaheadInput > focuses next list item on arrow down 1`] = `
 
 exports[`TypeaheadInput > focuses previous list item on arrow up 1`] = `
 <div class="pdap-typeahead" id="undefined_wrapper">
+  <label class="col-span-2"></label>
   <input autocomplete="off" class="pdap-typeahead-input" placeholder type="text">
   <ul class="pdap-typeahead-list">
     <li class="pdap-typeahead-list-item" role="button" tabindex="0">

@@ -77,12 +77,13 @@ export const useAuthStore = defineStore('auth', {
 					{
 						headers: {
 							...HEADERS,
-							authorization: `Basic ${this.refreshToken.value}`,
+							authorization: `Bearer ${this.refreshToken.value}`,
 						},
 					},
 				);
 				return this.parseTokenAndSetData(response);
 			} catch (error) {
+				console.error('refresh token', { error });
 				throw new Error(error.response?.data?.message);
 			}
 		},
