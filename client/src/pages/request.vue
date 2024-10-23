@@ -23,9 +23,11 @@
 				</template>
 			</InputText>
 
-			<h4 class="py-1 md:col-span-2">What area is covered by your request?</h4>
+			<label :for="INPUT_NAMES.area" class="py-1 md:col-span-2 mb-1">
+				<h4>What area is covered by your request?</h4>
+			</label>
 
-			<TransitionGroup name="list">
+			<TransitionGroup v-if="selectedLocations" name="list">
 				<LocationSelected
 					v-for="location in selectedLocations"
 					:key="JSON.stringify(location)"
@@ -41,52 +43,38 @@
 				/>
 			</TransitionGroup>
 
-			<div class="flex gap-4 mb-3 md:col-span-2">
-				<Typeahead
-					:id="INPUT_NAMES.area"
-					ref="typeaheadRef"
-					:error="typeaheadError"
-					:format-item-for-display="formatText"
-					:items="items"
-					placeholder="Enter a place"
-					@select-item="
-						(item) => {
-							locationPendingSelection = item;
+			<Typeahead
+				:id="INPUT_NAMES.area"
+				ref="typeaheadRef"
+				class="md:col-span-2 mb-2"
+				:error="typeaheadError"
+				:format-item-for-display="formatText"
+				:items="items"
+				:placeholder="
+					selectedLocations.length ? 'Enter another place' : 'Enter a place'
+				"
+				@select-item="
+					(item) => {
+						if (item) {
+							selectedLocations = [...selectedLocations, item];
 							items = [];
-						}
-					"
-					@on-input="fetchTypeaheadResults"
-				>
-					<!-- Item to render passed as scoped slot -->
-					<template #item="item">
-						<!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
-						<span v-html="typeaheadRef?.boldMatchText(formatText(item))" />
-						<span class="locale-type">
-							{{ item.type }}
-						</span>
-						<span class="select">Select</span>
-					</template>
-				</Typeahead>
-
-				<Button
-					class="typeahead-button"
-					:disabled="!locationPendingSelection"
-					intent="tertiary"
-					type="button"
-					@click="
-						() => {
-							selectedLocations = [
-								...selectedLocations,
-								locationPendingSelection,
-							];
-							locationPendingSelection = null;
+							typeaheadRef.clearInput();
 							typeaheadRef.focusInput();
 						}
-					"
-				>
-					<FontAwesomeIcon :icon="faPlus" />
-				</Button>
-			</div>
+					}
+				"
+				@on-input="fetchTypeaheadResults"
+			>
+				<!-- Item to render passed as scoped slot -->
+				<template #item="item">
+					<!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
+					<span v-html="typeaheadRef?.boldMatchText(formatText(item))" />
+					<span class="locale-type">
+						{{ item.type }}
+					</span>
+					<span class="select">Select</span>
+				</template>
+			</Typeahead>
 
 			<InputText
 				:id="'input-' + INPUT_NAMES.range"
@@ -166,8 +154,6 @@ import {
 } from 'pdap-design-system';
 import Typeahead from '../components/TypeaheadInput.vue';
 import LocationSelected from '../components/TypeaheadLocationSelected.vue';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useRequestStore } from '@/stores/request';
 import formatText from '@/util/formatLocationForDisplay';
 import _debounce from 'lodash/debounce';
@@ -260,7 +246,6 @@ const SCHEMA = [
 	},
 ];
 
-const locationPendingSelection = ref(null);
 const selectedLocations = ref([]);
 const items = ref([]);
 const formRef = ref();
@@ -285,12 +270,6 @@ const fetchTypeaheadResults = _debounce(
 							query: e.target.value,
 						},
 					},
-				);
-
-				suggestions.filter((s) =>
-					selectedLocations.value.some(
-						(l) => l.display_name !== s.display_name,
-					),
 				);
 
 				items.value = suggestions.length ? suggestions : undefined;
@@ -324,7 +303,7 @@ async function clear() {
 }
 
 function error(v$) {
-	// Janky error handling for typeahead because it's not an actual input - on form error, check for this error, too
+	// Janky error handling for typeahead because it's not a controlled input - on form error, check for this error, too
 	if (v$.value.$anyDirty && !selectedLocations.value.length) {
 		typeaheadError.value = 'Please include a location with your request';
 	}
@@ -332,7 +311,7 @@ function error(v$) {
 
 async function submit(values) {
 	if (!selectedLocations.value.length) {
-		// Janky error handling for typeahead because it's not an actual input - if form doesn't error, check for this error anyway.
+		// Janky error handling for typeahead because it's not a controlled input - if form doesn't error, check for this error anyway.
 		typeaheadError.value = 'Please include a location with your request';
 		return;
 	}
@@ -341,7 +320,7 @@ async function submit(values) {
 	// Remove contact for now, as it's not present on the API endpoint yet TODO: remove this when API is updated
 	delete values[INPUT_NAMES.contact];
 
-	// Spread to new array. In case of error, we need the original array to remain unmodified
+	// Create new array. In case of error, we need the original array to remain unmodified
 	const locations = _cloneDeep(selectedLocations.value);
 
 	const requestBody = {
@@ -354,18 +333,13 @@ async function submit(values) {
 		],
 	};
 
-	console.log('on submit request', requestBody);
-
-	let isError;
 	try {
 		await createRequest(requestBody);
 	} catch (error) {
-		// TODO: fix this in design-system. Not working
 		if (error) {
 			formError.value = 'Something went wrong, please try again.';
-			// TODO: Also not working. Fix here, or maybe in d-s
 			formRef.value.setValues({ ...values });
-			isError = true;
+			var isError = !!error;
 		}
 	} finally {
 		if (!isError) {
@@ -376,13 +350,15 @@ async function submit(values) {
 }
 
 watch(
-	// More janky typeahead error handling - clearing and re-applying when dirty
+	// More janky typeahead error handling
 	() => selectedLocations.value,
 	(selected) => {
+		// clearing when error exists and value selected
 		if (selected.length && typeaheadError.value) {
 			typeaheadError.value = undefined;
 		}
 
+		// clearing and re-applying when dirty
 		if (!selected.length && formRef.value.v$.$anyDirty) {
 			typeaheadError.value = 'Please include a location with your request';
 		}
@@ -393,10 +369,6 @@ watch(
 <style scoped>
 h4 {
 	margin: unset;
-}
-
-.typeahead-button {
-	@apply w-14 h-auto flex items-center justify-center [&>svg]:m-0 bg-neutral-50 dark:bg-neutral-950 text-neutral-950 dark:text-neutral-50 border border-neutral-500 border-solid;
 }
 
 .select {
