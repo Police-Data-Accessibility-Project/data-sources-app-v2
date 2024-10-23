@@ -126,7 +126,12 @@
 			<div
 				class="flex gap-2 flex-col max-w-full md:flex-row md:col-start-1 md:col-end-2 mt-8"
 			>
-				<Button :disabled="requestPending" intent="primary" type="submit">
+				<Button
+					:disabled="requestPending"
+					class="min-w-52"
+					intent="primary"
+					type="submit"
+				>
 					<Spinner :show="requestPending" />
 					<template v-if="!requestPending" #default> Submit request </template>
 				</Button>
