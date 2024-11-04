@@ -263,10 +263,12 @@ watch(
 		if (isNowSwiping) {
 			switch (direction.value) {
 				case 'left':
-					router.push(`/data-source/${mostRecentSearchIds[nextIdIndex.value]}`);
+					router.replace(
+						`/data-source/${mostRecentSearchIds[nextIdIndex.value]}`,
+					);
 					break;
 				case 'right':
-					router.push(
+					router.replace(
 						`/data-source/${mostRecentSearchIds[previousIdIndex.value]}`,
 					);
 					break;
