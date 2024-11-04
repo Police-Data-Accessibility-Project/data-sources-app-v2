@@ -1,24 +1,22 @@
 <template>
-	<!-- User is already logged in -->
-	<main v-if="auth.userId" class="pdap-flex-container">
-		<h1>Your account is now active</h1>
-		<p data-test="success-subheading">Enjoy the data sources app.</p>
-
-		<RouterLink class="pdap-button-secondary mt-6" to="/">
-			Search data sources
-		</RouterLink>
-	</main>
-
-	<!-- Otherwise, the form (form handles error UI on its own) -->
-	<main v-else class="pdap-flex-container mx-auto max-w-2xl">
+	<main class="pdap-flex-container mx-auto max-w-2xl">
 		<h1>Sign Up</h1>
+		<Button
+			class="border-2 border-neutral-950 border-solid [&>svg]:ml-0"
+			intent="tertiary"
+			@click="() => console.log('GH button clicked')"
+		>
+			<FontAwesomeIcon :icon="faGithub" />
+			Sign up with Github
+		</Button>
+
+		<h2>Or sign up with email</h2>
 		<FormV2
 			id="login"
 			class="flex flex-col"
 			data-test="login-form"
 			name="login"
 			:error="error"
-			:reset-on="success"
 			:schema="VALIDATION_SCHEMA"
 			@change="onChange"
 			@submit="onSubmit"
@@ -26,7 +24,7 @@
 		>
 			<InputText
 				id="email"
-				autofill="email"
+				autocomplete="email"
 				data-test="email"
 				name="email"
 				label="Email"
@@ -42,8 +40,14 @@
 
 			<PasswordValidationChecker ref="passwordRef" />
 
-			<Button class="max-w-full" type="submit" data-test="submit-button">
-				Create account
+			<Button
+				class="max-w-full"
+				:disabled="loading"
+				type="submit"
+				data-test="submit-button"
+			>
+				<Spinner :show="loading" />
+				<template v-if="!loading" #default>Create Account</template>
 			</Button>
 		</FormV2>
 		<div
@@ -69,21 +73,39 @@
 	</main>
 </template>
 
-<script setup>
-// Imports
-import { Button, FormV2, InputText, InputPassword } from 'pdap-design-system';
-import PasswordValidationChecker from '@/components/PasswordValidationChecker.vue';
-import { ref, onMounted } from 'vue';
+<script>
+// Navigation guard via data loader
+import { NavigationResult } from 'unplugin-vue-router/data-loaders';
+import { defineBasicLoader } from 'unplugin-vue-router/data-loaders/basic';
 import { useAuthStore } from '@/stores/auth';
-import { useUserStore } from '@/stores/user';
 import { useRouter } from 'vue-router';
 
-const router = useRouter();
+const { userId } = useAuthStore();
+
+export const useDataSourceData = defineBasicLoader('/sign-up', async () => {
+	if (userId) return new NavigationResult({ path: '/' });
+});
+</script>
+
+<script setup>
+// Imports
+import {
+	Button,
+	FormV2,
+	InputText,
+	InputPassword,
+	Spinner,
+} from 'pdap-design-system';
+import PasswordValidationChecker from '@/components/PasswordValidationChecker.vue';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { faGithub } from '@fortawesome/free-brands-svg-icons';
+import { ref } from 'vue';
+import { useUserStore } from '@/stores/user';
 
 // Constants
 const PASSWORD_INPUTS = [
 	{
-		autofill: 'new-password',
+		autocomplete: 'new-password',
 		'data-test': 'password',
 		id: 'password',
 		name: 'password',
@@ -91,7 +113,7 @@ const PASSWORD_INPUTS = [
 		placeholder: 'Your password',
 	},
 	{
-		autofill: 'new-password',
+		autocomplete: 'new-password',
 		'data-test': 'confirm-password',
 		id: 'confirmPassword',
 		name: 'confirmPassword',
@@ -138,6 +160,9 @@ const VALIDATION_SCHEMA = [
 	},
 ];
 
+// Router
+const router = useRouter();
+
 // Store
 const auth = useAuthStore();
 const user = useUserStore();
@@ -146,12 +171,6 @@ const user = useUserStore();
 const passwordRef = ref();
 const error = ref(undefined);
 const loading = ref(false);
-const success = ref(false);
-
-onMounted(async () => {
-	// User signed up and logged in
-	if (auth.userId) await router.push({ path: '/' });
-});
 
 // Functions
 // Handlers
@@ -199,9 +218,10 @@ async function onSubmit(formValues) {
 		loading.value = true;
 		const { email, password } = formValues;
 
-		await user.signup(email, password);
-		success.value = true;
+		await user.signupWithEmail(email, password);
+		await router.push(auth.redirectTo ?? { path: '/sign-up/success' });
 	} catch (err) {
+		console.error(err);
 		error.value = 'Something went wrong, please try again.';
 	} finally {
 		loading.value = false;

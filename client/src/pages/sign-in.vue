@@ -1,6 +1,16 @@
 <template>
-	<main class="pdap-flex-container mx-auto max-w-2xl">
+	<main class="pdap-flex-container mx-auto max-w-2xl pb-24">
 		<h1>Sign In</h1>
+		<Button
+			class="border-2 border-neutral-950 border-solid [&>svg]:ml-0"
+			intent="tertiary"
+			@click="async () => await auth.loginWithGithub()"
+		>
+			<FontAwesomeIcon :icon="faGithub" />
+			Sign in with Github
+		</Button>
+
+		<h2>Or sign in with email</h2>
 		<FormV2
 			id="login"
 			class="flex flex-col"
@@ -12,7 +22,7 @@
 		>
 			<InputText
 				id="email"
-				autofill="email"
+				autocomplete="email"
 				data-test="email"
 				name="email"
 				label="Email"
@@ -21,7 +31,7 @@
 			/>
 			<InputPassword
 				id="password"
-				autofill="password"
+				autocomplete="password"
 				data-test="password"
 				name="password"
 				label="Password"
@@ -61,6 +71,19 @@
 	</main>
 </template>
 
+<script>
+// Navigation guard via data loader
+import { NavigationResult } from 'unplugin-vue-router/data-loaders';
+import { defineBasicLoader } from 'unplugin-vue-router/data-loaders/basic';
+import { useAuthStore } from '@/stores/auth';
+
+const { userId } = useAuthStore();
+
+export const useDataSourceData = defineBasicLoader('/sign-in', async () => {
+	if (userId) return new NavigationResult({ path: '/' });
+});
+</script>
+
 <script setup>
 // Imports
 import {
@@ -70,8 +93,9 @@ import {
 	InputText,
 	Spinner,
 } from 'pdap-design-system';
-import { onMounted, ref } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { faGithub } from '@fortawesome/free-brands-svg-icons';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -111,11 +135,6 @@ const auth = useAuthStore();
 const error = ref(undefined);
 const loading = ref(false);
 
-onMounted(() => {
-	// If user already logged in, navigate to home page
-	if (auth.userId) router.push({ path: '/' });
-});
-
 // Handlers
 /**
  * Logs user in
@@ -125,7 +144,7 @@ async function onSubmit(formValues) {
 		loading.value = true;
 		const { email, password } = formValues;
 
-		await auth.login(email, password);
+		await auth.loginWithEmail(email, password);
 
 		error.value = undefined;
 		router.push(auth.redirectTo ?? '/');

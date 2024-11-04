@@ -16,16 +16,18 @@ if (import.meta.hot && !import.meta.test) {
 	handleHotUpdate(router);
 }
 
-router.beforeEach(async (to, _, next) => {
+router.beforeEach(async (to, from, next) => {
 	// Update meta tags per route
 	refreshMetaTagsByRoute(to);
 
 	// redirect to login page if not logged in and trying to access a restricted page
-	const auth = useAuthStore();
-
-	if (to.meta.auth && !auth.userId) {
-		auth.redirectTo = to;
+	const { setRedirectTo, userId } = useAuthStore();
+	if (to.meta.auth && !userId) {
+		setRedirectTo(to);
 		next({ path: '/sign-in', replace: true });
+	} else if (to.meta.auth && userId) {
+		setRedirectTo(null);
+		next();
 	} else {
 		next();
 	}

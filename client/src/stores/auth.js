@@ -7,7 +7,9 @@ import { useUserStore } from './user';
 const HEADERS = {
 	'Content-Type': 'application/json',
 };
-const LOGIN_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/login`;
+const LOGIN_WITH_EMAIL_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/login`;
+const LOGIN_WITH_GITHUB_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/auth/login-with-github`;
+const LINK_WITH_GITHUB_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/auth/link-to-github`;
 const REFRESH_SESSION_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/refresh-session`;
 
 export const useAuthStore = defineStore('auth', {
@@ -30,11 +32,11 @@ export const useAuthStore = defineStore('auth', {
 		pick: ['userId', 'tokens'],
 	},
 	actions: {
-		async login(email, password) {
+		async loginWithEmail(email, password) {
 			const user = useUserStore();
 
 			const response = await axios.post(
-				LOGIN_URL,
+				LOGIN_WITH_EMAIL_URL,
 				{ email, password },
 				{
 					headers: {
@@ -49,6 +51,15 @@ export const useAuthStore = defineStore('auth', {
 			user.$patch({ email });
 
 			this.parseTokensAndSetData(response);
+		},
+
+		async loginWithGithub() {
+			window.location.href = LOGIN_WITH_GITHUB_URL;
+		},
+
+		async linkAccountWithGithub() {
+			// TODO: params required here
+			window.location.href = LINK_WITH_GITHUB_URL;
 		},
 
 		async logout(route) {
@@ -113,6 +124,12 @@ export const useAuthStore = defineStore('auth', {
 						expires: new Date(refreshTokenParsed.exp * 1000).getTime(),
 					},
 				},
+			});
+		},
+
+		setRedirectTo(path) {
+			this.$patch({
+				redirectTo: path,
 			});
 		},
 	},
