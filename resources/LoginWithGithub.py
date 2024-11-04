@@ -3,6 +3,7 @@ from http import HTTPStatus
 from config import limiter
 from middleware.access_logic import NO_AUTH_INFO, AccessInfo
 from middleware.decorators import endpoint_info_2
+from middleware.primary_resource_logic.callback_primary_logic import login_with_github_wrapper
 from middleware.third_party_interaction_logic.callback_flask_sessions_logic import (
     setup_callback_session,
 )
@@ -50,12 +51,16 @@ class LoginWithGithub(PsycopgResource):
         """,
     )
     @limiter.limit("5 per minute")
-    def get(self, access_info: AccessInfo):
+    def post(self, access_info: AccessInfo):
         """
         Login the user with their Github account
         :return:
         """
-        setup_callback_session(
-            callback_functions_enum=CallbackFunctionsEnum.LOGIN_WITH_GITHUB,
+        return self.run_endpoint(
+            wrapper_function=login_with_github_wrapper,
+            schema_populate_parameters=SchemaConfigs.AUTH_GITHUB_LOGIN.value.get_schema_populate_parameters(),
         )
-        return redirect_to_github_authorization()
+        # setup_callback_session(
+        #     callback_functions_enum=CallbackFunctionsEnum.LOGIN_WITH_GITHUB,
+        # )
+        # return redirect_to_github_authorization()

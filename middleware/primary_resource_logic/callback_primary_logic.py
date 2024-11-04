@@ -2,14 +2,16 @@ import uuid
 from dataclasses import dataclass
 from http import HTTPStatus
 
-from flask import Response, make_response
+from flask import Response, make_response, redirect
 
 from database_client.database_client import DatabaseClient
 from database_client.enums import ExternalAccountTypeEnum
+from middleware.access_logic import AccessInfo
 from middleware.common_response_formatting import message_response
 from middleware.exceptions import UserNotFoundError
 from middleware.flask_response_manager import FlaskResponseManager
 from middleware.primary_resource_logic.login_queries import unauthorized_response, login_response
+from middleware.schema_and_dto_logic.primary_resource_schemas.auth_schemas import LoginWithGithubRequestDTO
 from middleware.third_party_interaction_logic.callback_flask_sessions_logic import (
     get_callback_params,
     get_callback_function,
@@ -29,6 +31,7 @@ from middleware.primary_resource_logic.user_queries import (
     user_post_results,
     UserRequestDTO,
 )
+from tests.helper_scripts.helper_functions import add_query_params
 
 
 @dataclass
@@ -65,14 +68,24 @@ def callback_outer_wrapper(db_client: DatabaseClient) -> Response:
     :param db_client:
     :return:
     """
-    oauth_callback_info = get_oauth_callback_info()
+    gh_access_token = get_github_oauth_access_token()
     flask_session_callback_info = get_flask_session_callback_info()
-    return callback_inner_wrapper(
-        db_client=db_client,
-        callback_function_enum=flask_session_callback_info.callback_functions_enum,
-        github_user_info=oauth_callback_info.github_user_info,
-        callback_params=flask_session_callback_info.callback_params,
+    redirect_base_url = flask_session_callback_info.callback_params["redirect_url"]
+    redirect_url = add_query_params(
+        url=redirect_base_url,
+        params={"gh_access_token": gh_access_token['access_token']},
     )
+    return redirect(
+        location=redirect_url
+    )
+
+    #
+    # return callback_inner_wrapper(
+    #     db_client=db_client,
+    #     callback_function_enum=flask_session_callback_info.callback_functions_enum,
+    #     github_user_info=oauth_callback_info.github_user_info,
+    #     callback_params=flask_session_callback_info.callback_params,
+    # )
 
 
 def create_random_password() -> str:
@@ -157,6 +170,19 @@ def user_exists(db_client: DatabaseClient, email: str) -> bool:
         return True
     except UserNotFoundError:
         return False
+
+def login_with_github_wrapper(
+    db_client: DatabaseClient,
+    dto: LoginWithGithubRequestDTO
+):
+    github_user_info = get_github_user_info(
+        access_token=dto.gh_access_token
+    )
+    return try_logging_in_with_github_id(
+        db_client=db_client,
+        github_user_info=github_user_info
+    )
+
 
 def try_logging_in_with_github_id(
     db_client: DatabaseClient, github_user_info: GithubUserInfo
