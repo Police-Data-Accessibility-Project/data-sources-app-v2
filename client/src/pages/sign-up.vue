@@ -1,5 +1,15 @@
 <template>
-	<main class="pdap-flex-container mx-auto max-w-2xl">
+	<main v-if="auth.userId" class="pdap-flex-container">
+		<h1>Your account is now active</h1>
+		<p data-test="success-subheading">Enjoy the data sources app.</p>
+
+		<RouterLink class="pdap-button-secondary mt-6" to="/">
+			Search data sources
+		</RouterLink>
+	</main>
+
+	<!-- Otherwise, the form (form handles error UI on its own) -->
+	<main v-else class="pdap-flex-container mx-auto max-w-2xl">
 		<h1>Sign Up</h1>
 		<Button
 			class="border-2 border-neutral-950 border-solid [&>svg]:ml-0"
