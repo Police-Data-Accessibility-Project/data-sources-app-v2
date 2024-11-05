@@ -6,10 +6,7 @@ Because it involves interactions with a third party app, the ability to test its
 from typing import Optional
 from github import Github, Auth
 
-import requests
-from flask import url_for
 from config import oauth
-from middleware.flask_response_manager import FlaskResponseManager
 
 REDIRECT_ENDPOINT = "auth_callback"
 

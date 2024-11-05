@@ -4,13 +4,7 @@ from config import limiter
 from middleware.access_logic import NO_AUTH_INFO, AccessInfo
 from middleware.decorators import endpoint_info_2
 from middleware.primary_resource_logic.callback_primary_logic import login_with_github_wrapper
-from middleware.third_party_interaction_logic.callback_flask_sessions_logic import (
-    setup_callback_session,
-)
-from middleware.enums import CallbackFunctionsEnum
-from middleware.third_party_interaction_logic.callback_oauth_logic import (
-    redirect_to_github_authorization,
-)
+
 from resources.PsycopgResource import PsycopgResource
 from resources.endpoint_schema_config import SchemaConfigs
 from resources.resource_helpers import ResponseInfo
@@ -60,7 +54,3 @@ class LoginWithGithub(PsycopgResource):
             wrapper_function=login_with_github_wrapper,
             schema_populate_parameters=SchemaConfigs.AUTH_GITHUB_LOGIN.value.get_schema_populate_parameters(),
         )
-        # setup_callback_session(
-        #     callback_functions_enum=CallbackFunctionsEnum.LOGIN_WITH_GITHUB,
-        # )
-        # return redirect_to_github_authorization()
