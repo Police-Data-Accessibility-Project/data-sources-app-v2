@@ -11,6 +11,7 @@ const LOGIN_WITH_EMAIL_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/login`;
 const LOGIN_WITH_GITHUB_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/auth/login-with-github`;
 const LINK_WITH_GITHUB_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/auth/link-to-github`;
 const REFRESH_SESSION_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/refresh-session`;
+const START_OAUTH_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/auth/oauth`;
 
 export const useAuthStore = defineStore('auth', {
 	state: () => ({
@@ -53,13 +54,47 @@ export const useAuthStore = defineStore('auth', {
 			this.parseTokensAndSetData(response);
 		},
 
-		async loginWithGithub() {
-			window.location.href = LOGIN_WITH_GITHUB_URL;
+		async beginOAuthLogin(redirectPath = '/sign-in') {
+			const redirectTo = encodeURI(
+				`${START_OAUTH_URL}?redirect_url=${import.meta.env.VITE_VUE_APP_BASE_URL}${redirectPath}`,
+			);
+
+			window.location.href = redirectTo;
 		},
 
-		async linkAccountWithGithub() {
-			// TODO: params required here
-			window.location.href = LINK_WITH_GITHUB_URL;
+		async loginWithGithub(gh_access_token) {
+			const response = await axios.post(
+				LOGIN_WITH_GITHUB_URL,
+				{ gh_access_token },
+				{
+					headers: {
+						...HEADERS,
+					},
+				},
+			);
+
+			this.parseTokensAndSetData(response);
+			return true;
+		},
+
+		async linkAccountWithGithub(redirect_to = '/profile') {
+			const user = useUserStore();
+
+			const user_email = user.email;
+
+			// TODO: USE THIS WHEN PROFILE PAGE IS DONE
+			const response = await axios.post(
+				LINK_WITH_GITHUB_URL,
+				{ redirect_to, user_email },
+				{
+					headers: {
+						...HEADERS,
+						authorization: `Bearer ${this.$state.tokens.accessToken.value}`,
+					},
+				},
+			);
+
+			console.debug({ response });
 		},
 
 		async logout(route) {
