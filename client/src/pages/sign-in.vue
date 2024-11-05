@@ -18,7 +18,7 @@
 			<template v-else>
 				<template v-if="githubAuthData.userExists">
 					<p class="error">
-						You already have an account with this email address. Please log in
+						You already have an account with this email address. Please sign in
 						and link your existing account to Github from your profile.
 					</p>
 				</template>
