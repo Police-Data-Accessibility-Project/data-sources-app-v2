@@ -1,31 +1,19 @@
 from http import HTTPStatus
 
-from flask_restx import reqparse
-from marshmallow import Schema
-
 from config import limiter
 from database_client.database_client import DatabaseClient
 from middleware.access_logic import NO_AUTH_INFO, AccessInfo
 from middleware.decorators import endpoint_info_2
 from middleware.schema_and_dto_logic.dynamic_logic.dynamic_schema_request_content_population import \
     populate_schema_with_request_content
-from middleware.third_party_interaction_logic.callback_flask_sessions_logic import (
-    setup_callback_session,
-)
-from middleware.primary_resource_logic.callback_primary_logic import LinkToGithubRequestDTO, \
+
+from middleware.primary_resource_logic.github_oauth_logic import LinkToGithubRequestDTO, \
     link_github_account_request_wrapper
-from middleware.enums import CallbackFunctionsEnum
-from middleware.third_party_interaction_logic.callback_oauth_logic import (
-    redirect_to_github_authorization,
-)
+
 from resources.PsycopgResource import PsycopgResource
 from resources.endpoint_schema_config import SchemaConfigs
 from resources.resource_helpers import ResponseInfo
 from utilities.namespace import create_namespace, AppNamespaces
-from middleware.schema_and_dto_logic.dynamic_logic.dynamic_dto_request_content_population import (
-    populate_dto_with_request_content,
-)
-from utilities.enums import SourceMappingEnum
 
 namespace_link_to_github = create_namespace(AppNamespaces.AUTH)
 
@@ -39,6 +27,7 @@ class LinkToGithub(PsycopgResource):
         response_info=ResponseInfo(
             response_dictionary={
                 HTTPStatus.OK: "Callback response. Accounts linked.",
+                HTTPStatus.BAD_REQUEST: "Bad request. Provided email doesn't have associated PDAP account or GitHub acccount doesn't match associated PDAP account.",
                 HTTPStatus.FOUND: "Returns redirect link to OAuth.",
                 HTTPStatus.INTERNAL_SERVER_ERROR: "Internal Server Error.",
             },

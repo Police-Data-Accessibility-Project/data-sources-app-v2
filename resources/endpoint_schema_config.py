@@ -4,7 +4,7 @@ from typing import Optional, Type
 
 from marshmallow import Schema
 
-from middleware.primary_resource_logic.callback_primary_logic import LinkToGithubRequestDTO
+from middleware.primary_resource_logic.github_oauth_logic import LinkToGithubRequestDTO
 from middleware.primary_resource_logic.data_requests import (
     RelatedSourceByIDSchema,
     RelatedSourceByIDDTO, DataRequestsPostDTO, RelatedLocationsByIDDTO,
