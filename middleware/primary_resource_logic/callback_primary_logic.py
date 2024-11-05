@@ -36,7 +36,7 @@ from tests.helper_scripts.helper_functions import add_query_params
 
 @dataclass
 class LinkToGithubRequestDTO:
-    redirect_to: str
+    gh_access_token: str
     user_email: str
 
 
@@ -79,14 +79,6 @@ def callback_outer_wrapper(db_client: DatabaseClient) -> Response:
         location=redirect_url
     )
 
-    #
-    # return callback_inner_wrapper(
-    #     db_client=db_client,
-    #     callback_function_enum=flask_session_callback_info.callback_functions_enum,
-    #     github_user_info=oauth_callback_info.github_user_info,
-    #     callback_params=flask_session_callback_info.callback_params,
-    # )
-
 
 def create_random_password() -> str:
     return uuid.uuid4().hex
@@ -108,25 +100,18 @@ def create_user_with_github(db_client: DatabaseClient, github_user_info: GithubU
         pdap_account_email=github_user_info.user_email,
     )
 
-
-def callback_inner_wrapper(
+def link_github_account_request_wrapper(
     db_client: DatabaseClient,
-    callback_function_enum: CallbackFunctionsEnum,
-    github_user_info: GithubUserInfo,
-    callback_params: dict,
+    dto: LinkToGithubRequestDTO
 ) -> Response:
-
-    if callback_function_enum == CallbackFunctionsEnum.LOGIN_WITH_GITHUB:
-        return try_logging_in_with_github_id(
-            db_client=db_client, github_user_info=github_user_info
-        )
-    elif callback_function_enum == CallbackFunctionsEnum.LINK_TO_GITHUB:
-        return link_github_account_request(
-            db_client=db_client,
-            github_user_info=github_user_info,
-            pdap_account_email=callback_params["user_email"],
-        )
-    raise ValueError(f"Invalid callback function: {callback_function_enum}")
+    github_user_info = get_github_user_info(
+        access_token=dto.gh_access_token
+    )
+    return link_github_account_request(
+        db_client=db_client,
+        github_user_info=github_user_info,
+        pdap_account_email=dto.user_email
+    )
 
 
 def link_github_account_request(

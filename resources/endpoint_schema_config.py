@@ -16,7 +16,7 @@ from middleware.primary_resource_logic.unique_url_checker import UniqueURLChecke
 from middleware.primary_resource_logic.user_queries import UserRequestSchema, UserRequestDTO
 from middleware.schema_and_dto_logic.primary_resource_schemas.auth_schemas import LoginResponseSchema, \
     LinkToGithubRequestSchema, GithubOAuthRequestSchema, GithubOAuthRequestDTO, LoginWithGithubRequestDTO, \
-    LoginWithGithubRequestSchema
+    GithubRequestSchema
 from middleware.schema_and_dto_logic.primary_resource_dtos.data_requests_dtos import GetManyDataRequestsRequestsDTO
 from middleware.schema_and_dto_logic.primary_resource_schemas.notifications_schemas import NotificationsResponseSchema
 from middleware.schema_and_dto_logic.primary_resource_schemas.search_schemas import SearchRequestSchema, \
@@ -281,7 +281,7 @@ class SchemaConfigs(Enum):
         input_schema=UserRequestSchema(), primary_output_schema=LoginResponseSchema(), input_dto_class=UserRequestDTO
     )
     AUTH_GITHUB_LOGIN = EndpointSchemaConfig(
-        input_schema=LoginWithGithubRequestSchema(),
+        input_schema=GithubRequestSchema(),
         input_dto_class=LoginWithGithubRequestDTO,
         primary_output_schema=LoginResponseSchema()
     )

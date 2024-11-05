@@ -4,6 +4,7 @@ from flask_restx import reqparse
 from marshmallow import Schema
 
 from config import limiter
+from database_client.database_client import DatabaseClient
 from middleware.access_logic import NO_AUTH_INFO, AccessInfo
 from middleware.decorators import endpoint_info_2
 from middleware.schema_and_dto_logic.dynamic_logic.dynamic_schema_request_content_population import \
@@ -11,7 +12,8 @@ from middleware.schema_and_dto_logic.dynamic_logic.dynamic_schema_request_conten
 from middleware.third_party_interaction_logic.callback_flask_sessions_logic import (
     setup_callback_session,
 )
-from middleware.primary_resource_logic.callback_primary_logic import LinkToGithubRequestDTO
+from middleware.primary_resource_logic.callback_primary_logic import LinkToGithubRequestDTO, \
+    link_github_account_request_wrapper
 from middleware.enums import CallbackFunctionsEnum
 from middleware.third_party_interaction_logic.callback_oauth_logic import (
     redirect_to_github_authorization,
@@ -27,26 +29,9 @@ from utilities.enums import SourceMappingEnum
 
 namespace_link_to_github = create_namespace(AppNamespaces.AUTH)
 
-link_to_github_parser = reqparse.RequestParser()
-link_to_github_parser.add_argument(
-    "redirect_to",
-    type=str,
-    required=True,
-    help="The URL to redirect the user to after linking to Github",
-    default="/",
-)
-link_to_github_parser.add_argument(
-    "user_email",
-    type=str,
-    required=True,
-    help="The email of the user. Used to identify the user to link with. Must match the primary email of the Github account.",
-)
-
-
 @namespace_link_to_github.route("/link-to-github")
 class LinkToGithub(PsycopgResource):
 
-    @namespace_link_to_github.expect(link_to_github_parser)
     @endpoint_info_2(
         namespace=namespace_link_to_github,
         auth_info=NO_AUTH_INFO,
@@ -80,9 +65,7 @@ class LinkToGithub(PsycopgResource):
             schema=SchemaConfigs.AUTH_GITHUB_LINK.value.input_schema,
             dto_class=SchemaConfigs.AUTH_GITHUB_LINK.value.input_dto_class,
         )
-        setup_callback_session(
-            callback_functions_enum=CallbackFunctionsEnum.LINK_TO_GITHUB,
-            redirect_to=dto.redirect_to,
-            user_email=dto.user_email,
+        return link_github_account_request_wrapper(
+            db_client=DatabaseClient(),
+            dto=dto,
         )
-        return redirect_to_github_authorization()
