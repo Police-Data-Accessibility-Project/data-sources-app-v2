@@ -93,29 +93,13 @@ export const useAuthStore = defineStore('auth', {
 			);
 		},
 
-		async logout(route) {
+		async logout() {
 			const user = useUserStore();
 
-			this.$patch({
-				userId: null,
-				tokens: {
-					accessToken: {
-						value: null,
-						expires: Date.now(),
-					},
-					refreshToken: {
-						value: null,
-						expires: Date.now(),
-					},
-				},
-				redirectTo: route,
-			});
+			this.$reset();
+			user.$reset();
 
-			user.$patch({
-				email: '',
-			});
-
-			router.push(route?.meta.auth ? '/sign-in' : '/');
+			router.replace(this.redirectTo?.meta.auth ? '/sign-in' : '/');
 		},
 
 		async refreshAccessToken() {

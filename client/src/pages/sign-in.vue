@@ -196,7 +196,7 @@ async function onSubmit(formValues) {
 		await loginWithEmail(email, password);
 
 		error.value = undefined;
-		router.push(redirectTo ?? '/');
+		router.push(redirectTo ?? '/profile');
 	} catch (err) {
 		console.error(err);
 		error.value =

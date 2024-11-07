@@ -6,6 +6,10 @@
 		<RouterLink class="pdap-button-secondary mt-6" :to="{ path: '/' }">
 			Search data sources
 		</RouterLink>
+
+		<RouterLink class="pdap-button-secondary mt-6" :to="{ path: '/profile' }">
+			Go to your profile
+		</RouterLink>
 	</main>
 </template>
 
