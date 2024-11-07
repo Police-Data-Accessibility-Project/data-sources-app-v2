@@ -1,5 +1,5 @@
 <template>
-	<main v-if="auth.userId" class="pdap-flex-container">
+	<main v-if="userId" class="pdap-flex-container">
 		<h1>Your account is now active</h1>
 		<p data-test="success-subheading">Enjoy the data sources app.</p>
 
@@ -8,92 +8,135 @@
 		</RouterLink>
 	</main>
 
-	<!-- Otherwise, the form (form handles error UI on its own) -->
 	<main v-else class="pdap-flex-container mx-auto max-w-2xl">
 		<h1>Sign Up</h1>
-		<Button
-			class="border-2 border-neutral-950 border-solid [&>svg]:ml-0"
-			intent="tertiary"
-			@click="() => console.log('GH button clicked')"
-		>
-			<FontAwesomeIcon :icon="faGithub" />
-			Sign up with Github
-		</Button>
 
-		<h2>Or sign up with email</h2>
-		<FormV2
-			id="login"
-			class="flex flex-col"
-			data-test="login-form"
-			name="login"
-			:error="error"
-			:schema="VALIDATION_SCHEMA"
-			@change="onChange"
-			@submit="onSubmit"
-			@input="onInput"
-		>
-			<InputText
-				id="email"
-				autocomplete="email"
-				data-test="email"
-				name="email"
-				label="Email"
-				type="text"
-				placeholder="Your email address"
-			/>
-
-			<InputPassword
-				v-for="input of PASSWORD_INPUTS"
-				v-bind="{ ...input }"
-				:key="input.name"
-			/>
-
-			<PasswordValidationChecker ref="passwordRef" />
-
-			<Button
-				class="max-w-full"
-				:disabled="loading"
-				type="submit"
-				data-test="submit-button"
-			>
-				<Spinner :show="loading" />
-				<template v-if="!loading" #default>Create Account</template>
-			</Button>
-		</FormV2>
+		<!-- TODO: when GH auth is complete, encapsulate duplicate UI from this and `/sign-up` -->
 		<div
-			class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4 sm:flex-wrap w-full"
+			v-if="githubLoading"
+			class="flex items-center justify-center h-full w-full"
 		>
-			<p class="w-full max-w-[unset]">Already have an account?</p>
-
-			<RouterLink
-				class="pdap-button-secondary flex-1 max-w-full"
-				data-test="toggle-button"
-				to="/sign-in"
-			>
-				Log in
-			</RouterLink>
-			<RouterLink
-				class="pdap-button-secondary flex-1 max-w-full"
-				data-test="reset-link"
-				to="/reset-password"
-			>
-				Reset Password
-			</RouterLink>
+			<Spinner :show="githubLoading" text="Logging in" />
 		</div>
+
+		<template v-else>
+			<template v-if="githubAuthError">
+				<p class="error">
+					There was an error logging you in with Github. Please try again
+				</p>
+			</template>
+			<template v-else>
+				<template v-if="githubAuthData?.userExists">
+					<p class="error">
+						You already have an account with this email address. Please
+						<RouterLink to="/profile">sign in</RouterLink>
+						and link your existing account to Github from your profile.
+					</p>
+				</template>
+
+				<Button
+					class="border-2 border-neutral-950 border-solid [&>svg]:ml-0"
+					intent="tertiary"
+					:disabled="githubAuthData?.userExists"
+					@click="async () => await beginOAuthLogin('/sign-up')"
+				>
+					<FontAwesomeIcon :icon="faGithub" />
+					Sign up with Github
+				</Button>
+			</template>
+
+			<h2>Or sign up with email</h2>
+			<FormV2
+				id="login"
+				class="flex flex-col"
+				data-test="login-form"
+				name="login"
+				:error="error"
+				:schema="VALIDATION_SCHEMA"
+				@change="onChange"
+				@submit="onSubmit"
+				@input="onInput"
+			>
+				<InputText
+					id="email"
+					autocomplete="email"
+					data-test="email"
+					name="email"
+					label="Email"
+					type="text"
+					placeholder="Your email address"
+				/>
+
+				<InputPassword
+					v-for="input of PASSWORD_INPUTS"
+					v-bind="{ ...input }"
+					:key="input.name"
+				/>
+
+				<PasswordValidationChecker ref="passwordRef" />
+
+				<Button
+					class="max-w-full"
+					:disabled="loading"
+					type="submit"
+					data-test="submit-button"
+				>
+					<Spinner :show="loading" />
+					<template v-if="!loading" #default>Create Account</template>
+				</Button>
+			</FormV2>
+			<div
+				class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4 sm:flex-wrap w-full"
+			>
+				<p class="w-full max-w-[unset]">Already have an account?</p>
+
+				<RouterLink
+					class="pdap-button-secondary flex-1 max-w-full"
+					data-test="toggle-button"
+					to="/sign-in"
+				>
+					Log in
+				</RouterLink>
+				<RouterLink
+					class="pdap-button-secondary flex-1 max-w-full"
+					data-test="reset-link"
+					to="/reset-password"
+				>
+					Reset Password
+				</RouterLink>
+			</div>
+		</template>
 	</main>
 </template>
 
 <script>
-// Navigation guard via data loader
+// Data loader - navigation guard and GH auth handling
+// TODO (when GH auth is settled): abstract this into repeatable func. It's duplicated on `/sign-in` and `/sign-up`
 import { NavigationResult } from 'unplugin-vue-router/data-loaders';
 import { defineBasicLoader } from 'unplugin-vue-router/data-loaders/basic';
 import { useAuthStore } from '@/stores/auth';
-import { useRouter } from 'vue-router';
 
-const { userId } = useAuthStore();
+const { redirectTo, setRedirectTo, userId, beginOAuthLogin, loginWithGithub } =
+	useAuthStore();
 
-export const useDataSourceData = defineBasicLoader('/sign-up', async () => {
-	if (userId) return new NavigationResult({ path: '/' });
+export const useGithubAuth = defineBasicLoader('/sign-up', async (route) => {
+	if (userId) return new NavigationResult(redirectTo ?? { path: '/profile' });
+
+	try {
+		const githubAccessToken = route.query.gh_access_token;
+
+		if (githubAccessToken) {
+			const tokens = await loginWithGithub(githubAccessToken);
+
+			if (tokens)
+				return new NavigationResult(redirectTo ?? { path: '/profile' });
+		}
+	} catch (error) {
+		if (error.response.data.message.includes('already exists')) {
+			setRedirectTo('/profile');
+			return { userExists: true };
+		} else throw error;
+	}
 });
 </script>
 
@@ -111,6 +154,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
 import { ref } from 'vue';
 import { useUserStore } from '@/stores/user';
+import { useRouter } from 'vue-router';
 
 // Constants
 const PASSWORD_INPUTS = [
@@ -170,11 +214,20 @@ const VALIDATION_SCHEMA = [
 	},
 ];
 
+// Data loader
+const {
+	data: githubAuthData,
+	error: githubAuthError,
+	isLoading: githubLoading,
+} = useGithubAuth();
+
+console.debug({ githubLoading });
+
 // Router
 const router = useRouter();
 
 // Store
-const auth = useAuthStore();
+// const { redirectTo, userId } = useAuthStore();
 const user = useUserStore();
 
 // Reactive vars
@@ -229,10 +282,11 @@ async function onSubmit(formValues) {
 		const { email, password } = formValues;
 
 		await user.signupWithEmail(email, password);
-		await router.push(auth.redirectTo ?? { path: '/sign-up/success' });
+		await router.push(redirectTo ?? { path: '/sign-up/success' });
 	} catch (err) {
 		console.error(err);
-		error.value = 'Something went wrong, please try again.';
+		error.value =
+			err.response.data.message ?? 'Something went wrong, please try again.';
 	} finally {
 		loading.value = false;
 	}

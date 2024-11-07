@@ -2,6 +2,7 @@
 	<main class="pdap-flex-container mx-auto max-w-2xl pb-24">
 		<h1>Sign In</h1>
 
+		<!-- TODO: when GH auth is complete, encapsulate duplicate UI from this and `/sign-up` -->
 		<div
 			v-if="githubLoading"
 			class="flex items-center justify-center h-full w-full"
@@ -16,7 +17,7 @@
 				</p>
 			</template>
 			<template v-else>
-				<template v-if="githubAuthData.userExists">
+				<template v-if="githubAuthData?.userExists">
 					<p class="error">
 						You already have an account with this email address. Please sign in
 						and link your existing account to Github from your profile.
@@ -26,8 +27,8 @@
 				<Button
 					class="border-2 border-neutral-950 border-solid [&>svg]:ml-0"
 					intent="tertiary"
-					:disabled="githubAuthData.userExists"
-					@click="async () => await auth.beginOAuthLogin()"
+					:disabled="githubAuthData?.userExists"
+					@click="async () => await beginOAuthLogin()"
 				>
 					<FontAwesomeIcon :icon="faGithub" />
 					Sign in with Github
@@ -98,14 +99,16 @@
 
 <script>
 // Data loader - navigation guard and GH auth handling
+// TODO (when GH auth is settled): abstract this into repeatable func. It's duplicated on `/sign-in` and `/sign-up`
 import { NavigationResult } from 'unplugin-vue-router/data-loaders';
 import { defineBasicLoader } from 'unplugin-vue-router/data-loaders/basic';
 import { useAuthStore } from '@/stores/auth';
 
-const { redirectTo, userId, loginWithGithub } = useAuthStore();
+const { setRedirectTo, redirectTo, beginOAuthLogin, loginWithGithub, userId } =
+	useAuthStore();
 
 export const useGithubAuth = defineBasicLoader('/sign-in', async (route) => {
-	if (userId) return new NavigationResult({ path: redirectTo ?? '/' });
+	if (userId) throw new NavigationResult(redirectTo ?? { path: '/profile' });
 
 	try {
 		const githubAccessToken = route.query.gh_access_token;
@@ -113,10 +116,12 @@ export const useGithubAuth = defineBasicLoader('/sign-in', async (route) => {
 		if (githubAccessToken) {
 			const tokens = await loginWithGithub(githubAccessToken);
 
-			if (tokens) return new NavigationResult({ path: redirectTo ?? '/' });
+			if (tokens)
+				return new NavigationResult(redirectTo ?? { path: '/profile' });
 		}
 	} catch (error) {
 		if (error.response.data.message.includes('already exists')) {
+			setRedirectTo('/profile');
 			return { userExists: true };
 		} else throw error;
 	}
@@ -168,11 +173,11 @@ const VALIDATION_SCHEMA = [
 ];
 
 // Store
-const auth = useAuthStore();
+const { loginWithEmail } = useAuthStore();
 const {
 	data: githubAuthData,
 	error: githubAuthError,
-	loading: githubLoading,
+	isLoading: githubLoading,
 } = useGithubAuth();
 
 // Reactive vars
@@ -188,12 +193,14 @@ async function onSubmit(formValues) {
 		loading.value = true;
 		const { email, password } = formValues;
 
-		await auth.loginWithEmail(email, password);
+		await loginWithEmail(email, password);
 
 		error.value = undefined;
-		router.push(auth.redirectTo ?? '/');
+		router.push(redirectTo ?? '/');
 	} catch (err) {
-		error.value = 'Something went wrong, please try again.';
+		console.error(err);
+		error.value =
+			err.response.data.message ?? 'Something went wrong, please try again.';
 	} finally {
 		loading.value = false;
 	}

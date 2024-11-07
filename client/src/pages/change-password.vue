@@ -21,7 +21,7 @@
 			<Button
 				class="border-2 border-neutral-950 border-solid [&>svg]:ml-0"
 				intent="tertiary"
-				@click="() => console.log('GH button clicked')"
+				@click="() => beginOAuthLogin('/profile')"
 			>
 				<FontAwesomeIcon :icon="faGithub" />
 				Sign in with Github
@@ -58,6 +58,7 @@
 import { Button, FormV2, InputPassword } from 'pdap-design-system';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
+import { useAuthStore } from '@/stores/auth';
 import { useUserStore } from '@/stores/user';
 import PasswordValidationChecker from '@/components/PasswordValidationChecker.vue';
 import { ref } from 'vue';
@@ -112,6 +113,7 @@ const VALIDATION_SCHEMA = [
 
 // Stores
 const user = useUserStore();
+const { beginOAuthLogin } = useAuthStore();
 
 // Reactive vars
 const passwordRef = ref();

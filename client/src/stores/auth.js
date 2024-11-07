@@ -77,24 +77,20 @@ export const useAuthStore = defineStore('auth', {
 			return true;
 		},
 
-		async linkAccountWithGithub(redirect_to = '/profile') {
-			const user = useUserStore();
+		async linkAccountWithGithub(gh_access_token) {
+			const { email } = useUserStore();
+			const user_email = email || this.userId;
 
-			const user_email = user.email;
-
-			// TODO: USE THIS WHEN PROFILE PAGE IS DONE
-			const response = await axios.post(
+			return await axios.post(
 				LINK_WITH_GITHUB_URL,
-				{ redirect_to, user_email },
+				{ gh_access_token, user_email },
 				{
 					headers: {
 						...HEADERS,
-						authorization: `Bearer ${this.$state.tokens.accessToken.value}`,
+						// authorization: `Bearer ${this.$state.tokens.accessToken.value}`,
 					},
 				},
 			);
-
-			console.debug({ response });
 		},
 
 		async logout(route) {
