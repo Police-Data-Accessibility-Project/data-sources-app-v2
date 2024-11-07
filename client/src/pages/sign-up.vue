@@ -221,8 +221,6 @@ const {
 	isLoading: githubLoading,
 } = useGithubAuth();
 
-console.debug({ githubLoading });
-
 // Router
 const router = useRouter();
 
