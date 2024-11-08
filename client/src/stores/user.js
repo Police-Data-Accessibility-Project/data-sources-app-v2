@@ -14,6 +14,7 @@ const VALIDATE_PASSWORD_RESET_TOKEN_URL = `${import.meta.env.VITE_VUE_API_BASE_U
 
 export const useUserStore = defineStore('user', {
 	state: () => ({
+		id: '',
 		email: '',
 	}),
 	persist: {

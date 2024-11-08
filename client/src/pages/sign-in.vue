@@ -28,7 +28,7 @@
 					class="border-2 border-neutral-950 border-solid [&>svg]:ml-0"
 					intent="tertiary"
 					:disabled="githubAuthData?.userExists"
-					@click="async () => await beginOAuthLogin()"
+					@click="async () => await auth.beginOAuthLogin()"
 				>
 					<FontAwesomeIcon :icon="faGithub" />
 					Sign in with Github
@@ -104,24 +104,26 @@ import { NavigationResult } from 'unplugin-vue-router/data-loaders';
 import { defineBasicLoader } from 'unplugin-vue-router/data-loaders/basic';
 import { useAuthStore } from '@/stores/auth';
 
-const { setRedirectTo, redirectTo, beginOAuthLogin, loginWithGithub, userId } =
-	useAuthStore();
+const auth = useAuthStore();
 
 export const useGithubAuth = defineBasicLoader('/sign-in', async (route) => {
-	if (userId) throw new NavigationResult(redirectTo ?? { path: '/profile' });
+	if (auth.isAuthenticated)
+		throw new NavigationResult(auth.redirectTo ?? { path: '/profile' });
 
 	try {
 		const githubAccessToken = route.query.gh_access_token;
 
 		if (githubAccessToken) {
-			const tokens = await loginWithGithub(githubAccessToken);
+			const tokens = await auth.loginWithGithub(githubAccessToken);
 
 			if (tokens)
-				return new NavigationResult(redirectTo ?? { path: '/profile' });
+				return new NavigationResult(
+					auth.redirectTo ?? { path: '/profile', query: { linked: true } },
+				);
 		}
 	} catch (error) {
 		if (error.response.data.message.includes('already exists')) {
-			setRedirectTo('/profile');
+			auth.setRedirectTo({ path: '/profile' });
 			return { userExists: true };
 		} else throw error;
 	}
@@ -196,11 +198,13 @@ async function onSubmit(formValues) {
 		await loginWithEmail(email, password);
 
 		error.value = undefined;
-		router.push(redirectTo ?? '/profile');
+		router.push(auth.redirectTo ?? '/profile');
 	} catch (err) {
 		console.error(err);
 		error.value =
-			err.response.data.message ?? 'Something went wrong, please try again.';
+			err.response.status > 400 && err.response.status < 500
+				? err.response.data.message
+				: 'Something went wrong, please try again.';
 	} finally {
 		loading.value = false;
 	}

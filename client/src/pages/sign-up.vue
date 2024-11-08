@@ -38,7 +38,7 @@
 					class="border-2 border-neutral-950 border-solid [&>svg]:ml-0"
 					intent="tertiary"
 					:disabled="githubAuthData?.userExists"
-					@click="async () => await beginOAuthLogin('/sign-up')"
+					@click="async () => await auth.beginOAuthLogin('/sign-up')"
 				>
 					<FontAwesomeIcon :icon="faGithub" />
 					Sign up with Github
@@ -116,24 +116,26 @@ import { NavigationResult } from 'unplugin-vue-router/data-loaders';
 import { defineBasicLoader } from 'unplugin-vue-router/data-loaders/basic';
 import { useAuthStore } from '@/stores/auth';
 
-const { redirectTo, setRedirectTo, userId, beginOAuthLogin, loginWithGithub } =
-	useAuthStore();
+const auth = useAuthStore();
 
 export const useGithubAuth = defineBasicLoader('/sign-up', async (route) => {
-	if (userId) return new NavigationResult(redirectTo ?? { path: '/profile' });
+	if (auth.isAuthenticated)
+		return new NavigationResult(auth.redirectTo ?? { path: '/profile' });
 
 	try {
 		const githubAccessToken = route.query.gh_access_token;
 
 		if (githubAccessToken) {
-			const tokens = await loginWithGithub(githubAccessToken);
+			const tokens = await auth.loginWithGithub(githubAccessToken);
 
 			if (tokens)
-				return new NavigationResult(redirectTo ?? { path: '/profile' });
+				return new NavigationResult(
+					auth.redirectTo ?? { path: '/profile', query: { linked: true } },
+				);
 		}
 	} catch (error) {
 		if (error.response.data.message.includes('already exists')) {
-			setRedirectTo('/profile');
+			auth.setRedirectTo({ path: '/profile' });
 			return { userExists: true };
 		} else throw error;
 	}
@@ -225,7 +227,6 @@ const {
 const router = useRouter();
 
 // Store
-// const { redirectTo, userId } = useAuthStore();
 const user = useUserStore();
 
 // Reactive vars
@@ -280,11 +281,13 @@ async function onSubmit(formValues) {
 		const { email, password } = formValues;
 
 		await user.signupWithEmail(email, password);
-		await router.push(redirectTo ?? { path: '/sign-up/success' });
+		await router.push(auth.redirectTo ?? { path: '/sign-up/success' });
 	} catch (err) {
 		console.error(err);
 		error.value =
-			err.response.data.message ?? 'Something went wrong, please try again.';
+			500 < err.response.status > 400
+				? err.response.data.message
+				: 'Something went wrong, please try again.';
 	} finally {
 		loading.value = false;
 	}

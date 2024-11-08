@@ -17,14 +17,14 @@
 // Navigation guard via data loader
 import { NavigationResult } from 'unplugin-vue-router/data-loaders';
 import { defineBasicLoader } from 'unplugin-vue-router/data-loaders/basic';
-import { useAuthStore } from '@/stores/auth';
+import { useUserStore } from '@/stores/user';
 
-const { userId } = useAuthStore();
+const user = useUserStore();
 
 export const useDataSourceData = defineBasicLoader(
 	'/sign-up/success',
 	async () => {
-		if (!userId)
+		if (!user.id)
 			return new NavigationResult({ path: '/sign-up', replace: true });
 	},
 );

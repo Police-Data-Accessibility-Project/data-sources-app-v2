@@ -15,7 +15,6 @@ const START_OAUTH_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/auth/oauth`;
 
 export const useAuthStore = defineStore('auth', {
 	state: () => ({
-		userId: null,
 		tokens: {
 			accessToken: {
 				value: null,
@@ -30,12 +29,16 @@ export const useAuthStore = defineStore('auth', {
 	}),
 	persist: {
 		storage: sessionStorage,
-		pick: ['userId', 'tokens'],
+		pick: ['tokens'],
+	},
+	getters: {
+		isAuthenticated: (state) => {
+			const user = useUserStore();
+			return !!state.tokens.accessToken.value && !!user.$state.id;
+		},
 	},
 	actions: {
 		async loginWithEmail(email, password) {
-			const user = useUserStore();
-
 			const response = await axios.post(
 				LOGIN_WITH_EMAIL_URL,
 				{ email, password },
@@ -47,9 +50,6 @@ export const useAuthStore = defineStore('auth', {
 					},
 				},
 			);
-
-			// Update user store with email
-			user.$patch({ email });
 
 			this.parseTokensAndSetData(response);
 		},
@@ -78,8 +78,7 @@ export const useAuthStore = defineStore('auth', {
 		},
 
 		async linkAccountWithGithub(gh_access_token) {
-			const { email } = useUserStore();
-			const user_email = email || this.userId;
+			const { email: user_email } = useUserStore();
 
 			return await axios.post(
 				LINK_WITH_GITHUB_URL,
@@ -93,42 +92,52 @@ export const useAuthStore = defineStore('auth', {
 			);
 		},
 
-		async logout() {
+		async logout(redirectTo) {
 			const user = useUserStore();
 
 			this.$reset();
 			user.$reset();
 
-			router.replace(this.redirectTo?.meta.auth ? '/sign-in' : '/');
+			if (redirectTo) {
+				this.$patch({
+					redirectTo,
+				});
+			}
+
+			router.replace(redirectTo?.meta?.auth ? '/sign-in' : '/');
 		},
 
 		async refreshAccessToken() {
-			if (!this.$state.userId) return;
+			const user = useUserStore();
+
+			if (!user.$state.id) return;
 			try {
 				const response = await axios.post(
 					REFRESH_SESSION_URL,
-					{ session_token: this.$state.tokens.accessToken.value },
+					{ refresh_token: this.$state.tokens.refreshToken.value },
 					{
 						headers: {
 							...HEADERS,
-							authorization: `Bearer ${this.$state.tokens.refreshToken.value}`,
+							authorization: `Bearer ${this.$state.tokens.accessToken.value}`,
 						},
 					},
 				);
 				return this.parseTokensAndSetData(response);
 			} catch (error) {
+				console.error(error);
 				throw new Error(error.response?.data?.message);
 			}
 		},
 
 		parseTokensAndSetData(response) {
+			const user = useUserStore();
+
 			const accessToken = response.data.access_token;
 			const refreshToken = response.data.refresh_token;
 			const accessTokenParsed = parseJwt(accessToken);
 			const refreshTokenParsed = parseJwt(refreshToken);
 
 			this.$patch({
-				userId: accessTokenParsed.sub,
 				tokens: {
 					accessToken: {
 						value: accessToken,
@@ -140,11 +149,16 @@ export const useAuthStore = defineStore('auth', {
 					},
 				},
 			});
+
+			user.$patch({
+				id: accessTokenParsed.sub.id,
+				email: accessTokenParsed.sub.user_email,
+			});
 		},
 
-		setRedirectTo(path) {
+		setRedirectTo(route) {
 			this.$patch({
-				redirectTo: path,
+				redirectTo: route,
 			});
 		},
 	},
