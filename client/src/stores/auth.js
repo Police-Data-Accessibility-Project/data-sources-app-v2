@@ -18,11 +18,11 @@ export const useAuthStore = defineStore('auth', {
 		tokens: {
 			accessToken: {
 				value: null,
-				expires: Date.now(),
+				expires: new Date().getTime(),
 			},
 			refreshToken: {
 				value: null,
-				expires: Date.now(),
+				expires: new Date().getTime(),
 			},
 		},
 		redirectTo: null,
@@ -34,7 +34,11 @@ export const useAuthStore = defineStore('auth', {
 	getters: {
 		isAuthenticated: (state) => {
 			const user = useUserStore();
-			return !!state.tokens.accessToken.value && !!user.$state.id;
+			return (
+				!!state.tokens.accessToken.value &&
+				state.tokens.accessToken.expires > new Date().getTime() &&
+				!!user.$state.id
+			);
 		},
 	},
 	actions: {
