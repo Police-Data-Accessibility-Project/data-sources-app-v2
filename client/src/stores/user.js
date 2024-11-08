@@ -6,7 +6,6 @@ const HEADERS = {
 	headers: { 'Content-Type': 'application/json' },
 };
 const SIGNUP_WITH_EMAIL_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/user`;
-const SIGNUP_WITH_GITHUB_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/auth/create-user-with-github`;
 const CHANGE_PASSWORD_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/user`;
 const REQUEST_PASSWORD_RESET_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/request-reset-password`;
 const PASSWORD_RESET_URL = `${import.meta.env.VITE_VUE_API_BASE_URL}/reset-password`;
@@ -30,11 +29,6 @@ export const useUserStore = defineStore('user', {
 			// Log users in after signup and return that response
 			return await auth.loginWithEmail(email, password);
 		},
-		async signupWithGithub() {
-			// const auth = useAuthStore();
-			await axios.post(SIGNUP_WITH_GITHUB_URL);
-		},
-
 		async changePassword(email, password) {
 			const auth = useAuthStore();
 			await axios.put(
