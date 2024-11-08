@@ -16,9 +16,6 @@ from middleware.schema_and_dto_logic.dynamic_logic.dynamic_schema_request_conten
 from middleware.third_party_interaction_logic.callback_flask_sessions_logic import (
     setup_callback_session,
 )
-from middleware.primary_resource_logic.callback_primary_logic import (
-    LinkToGithubRequestDTO,
-)
 from middleware.enums import CallbackFunctionsEnum
 from middleware.third_party_interaction_logic.callback_oauth_logic import (
     redirect_to_github_authorization,
