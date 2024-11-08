@@ -1,6 +1,14 @@
 from flask import Response, redirect
 
 from database_client.database_client import DatabaseClient
+from database_client.enums import ExternalAccountTypeEnum
+from middleware.common_response_formatting import message_response
+from middleware.exceptions import UserNotFoundError
+from middleware.flask_response_manager import FlaskResponseManager
+from middleware.primary_resource_logic.login_queries import (
+    unauthorized_response,
+    login_response,
+)
 from middleware.third_party_interaction_logic.callback_flask_sessions_logic import (
     get_callback_params,
     get_callback_function,
@@ -47,3 +55,57 @@ def callback_outer_wrapper(db_client: DatabaseClient) -> Response:
 
 
 
+def get_github_user_info(access_token: str) -> GithubUserInfo:
+    """
+    Gets the user information from the Github API via OAuth2
+    :param access_token: The access token from the Github API
+    :return: The user information
+    """
+    return GithubUserInfo(
+        user_id=get_github_user_id(access_token),
+        user_email=get_github_user_email(access_token),
+    )
+
+
+def user_exists(db_client: DatabaseClient, email: str) -> bool:
+    try:
+        db_client.get_user_info(email=email)
+        return True
+    except UserNotFoundError:
+        return False
+
+
+def try_logging_in_with_github_id(
+    db_client: DatabaseClient, github_user_info: GithubUserInfo
+) -> Response:
+    """
+    Tries to log in a user.
+
+    :param github_user_info: GithubUserInfo object.
+    :param db_client: DatabaseClient object.
+    :return: A response object with a message and status code.
+    """
+    try:
+        user_info_gh = db_client.get_user_info_by_external_account_id(
+            external_account_id=str(github_user_info.user_id),
+            external_account_type=ExternalAccountTypeEnum.GITHUB,
+        )
+    except UserNotFoundError:
+        # Check if user email exists
+        if user_exists(db_client=db_client, email=github_user_info.user_email):
+            return message_response(
+                status_code=HTTPStatus.UNAUTHORIZED,
+                message=f"User with email {github_user_info.user_email} already exists exists but is not linked to"
+                f" the Github Account with the same email. You must explicitly link their accounts in order to log in via Github.",
+            )
+
+        create_user_with_github(db_client=db_client, github_user_info=github_user_info)
+        user_info_gh = db_client.get_user_info_by_external_account_id(
+            external_account_id=str(github_user_info.user_id),
+            external_account_type=ExternalAccountTypeEnum.GITHUB,
+        )
+
+    return login_response(
+        user_info_gh,
+        message=f"User with email {user_info_gh.email} created and logged in.",
+    )

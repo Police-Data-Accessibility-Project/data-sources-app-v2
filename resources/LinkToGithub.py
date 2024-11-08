@@ -10,6 +10,19 @@ from middleware.schema_and_dto_logic.dynamic_logic.dynamic_schema_request_conten
 from middleware.primary_resource_logic.github_oauth_logic import LinkToGithubRequestDTO, \
     link_github_account_request_wrapper
 
+from middleware.schema_and_dto_logic.dynamic_logic.dynamic_schema_request_content_population import (
+    populate_schema_with_request_content,
+)
+from middleware.third_party_interaction_logic.callback_flask_sessions_logic import (
+    setup_callback_session,
+)
+from middleware.primary_resource_logic.callback_primary_logic import (
+    LinkToGithubRequestDTO,
+)
+from middleware.enums import CallbackFunctionsEnum
+from middleware.third_party_interaction_logic.callback_oauth_logic import (
+    redirect_to_github_authorization,
+)
 from resources.PsycopgResource import PsycopgResource
 from resources.endpoint_schema_config import SchemaConfigs
 from resources.resource_helpers import ResponseInfo

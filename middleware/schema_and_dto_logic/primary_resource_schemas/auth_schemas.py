@@ -14,11 +14,12 @@ class LoginResponseSchema(MessageSchema):
     refresh_token = fields.Str(
         metadata=get_json_metadata("The refresh token for the user's PDAP account"),
     )
-    
+
 class GithubRequestSchema(Schema):
     gh_access_token = fields.Str(
         metadata=get_json_metadata("The access token for the user's Github account"),
     )
+
 
 @dataclass
 class LoginWithGithubRequestDTO:
@@ -35,7 +36,8 @@ class GithubOAuthRequestSchema(Schema):
         metadata=get_query_metadata(
             "The URL to redirect the user to after authorization. "
             "After authorization, the user will be redirected to this URL with a query parameter"
-            " containing the access token."),
+            " containing the access token."
+        ),
     )
 
 @dataclass

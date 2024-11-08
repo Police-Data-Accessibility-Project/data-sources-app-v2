@@ -7,8 +7,16 @@ import psycopg
 
 from database_client.database_client import DatabaseClient
 from database_client.db_client_dataclasses import WhereMapping
-from database_client.enums import LocationType, AgencyAggregation, DetailLevel, AccessType, RetentionSchedule, \
-    URLStatus, ApprovalStatus, UpdateMethod
+from database_client.enums import (
+    LocationType,
+    AgencyAggregation,
+    DetailLevel,
+    AccessType,
+    RetentionSchedule,
+    URLStatus,
+    ApprovalStatus,
+    UpdateMethod,
+)
 from middleware.enums import AccessTypeEnum, RecordType
 
 from resources.endpoint_schema_config import SchemaConfigs
@@ -25,13 +33,14 @@ from tests.helper_scripts.helper_functions import (
     search_with_boolean_dictionary,
 )
 from tests.helper_scripts.run_and_validate_request import run_and_validate_request
-from tests.helper_scripts.constants import DATA_SOURCES_BASE_ENDPOINT, DATA_SOURCES_GET_RELATED_AGENCIES_ENDPOINT, \
-    DATA_SOURCES_POST_DELETE_RELATED_AGENCY_ENDPOINT
+from tests.helper_scripts.constants import (
+    DATA_SOURCES_BASE_ENDPOINT,
+    DATA_SOURCES_GET_RELATED_AGENCIES_ENDPOINT,
+    DATA_SOURCES_POST_DELETE_RELATED_AGENCY_ENDPOINT,
+)
 
 
-def test_data_sources_get(
-    flask_client_with_db
-):
+def test_data_sources_get(flask_client_with_db):
     """
     Test that GET call to /data-sources endpoint retrieves data sources and correctly identifies specific sources by name
     """
@@ -67,9 +76,7 @@ def test_data_sources_get(
     assert data_asc[0]["name"] < data_desc[0]["name"]
 
 
-def test_data_sources_get_many_limit_columns(
-    flask_client_with_db
-):
+def test_data_sources_get_many_limit_columns(flask_client_with_db):
     """
     Test that GET call to /data-sources endpoint properly limits by columns
      when passed the `requested_columns` query parameter
@@ -156,7 +163,11 @@ def test_data_sources_by_id_put(test_data_creator_flask: TestDataCreatorFlask):
         "coverage_start": "2020-01-01",
         "coverage_end": "2020-12-31",
         "detail_level": DetailLevel.INDIVIDUAL.value,
-        "access_types": [AccessType.API.value, AccessType.WEB_PAGE.value, AccessType.DOWNLOAD.value],
+        "access_types": [
+            AccessType.API.value,
+            AccessType.WEB_PAGE.value,
+            AccessType.DOWNLOAD.value,
+        ],
         "record_download_option_provided": True,
         "data_portal_type": uuid.uuid4().hex,
         "record_formats": [uuid.uuid4().hex, uuid.uuid4().hex],
@@ -182,9 +193,7 @@ def test_data_sources_by_id_put(test_data_creator_flask: TestDataCreatorFlask):
         http_method="put",
         endpoint=f"/api/data-sources/{cdr.id}",
         headers=tdc.get_admin_tus().jwt_authorization_header,
-        json={
-            "entry_data": entry_data
-        },
+        json={"entry_data": entry_data},
     )
 
     response_json = run_and_validate_request(
@@ -198,7 +207,6 @@ def test_data_sources_by_id_put(test_data_creator_flask: TestDataCreatorFlask):
     data = response_json["data"]
     for key, value in entry_data.items():
         assert data[key] == value
-
 
 
 def test_data_sources_by_id_delete(
@@ -232,8 +240,9 @@ def test_data_sources_by_id_delete(
 
     assert len(result) == 0
 
+
 def test_data_source_by_id_related_agencies(
-    test_data_creator_flask: TestDataCreatorFlask
+    test_data_creator_flask: TestDataCreatorFlask,
 ):
     tdc = test_data_creator_flask
 
@@ -257,7 +266,6 @@ def test_data_source_by_id_related_agencies(
     assert len(json_data["data"]) == 0
     assert json_data["metadata"]["count"] == 0
 
-
     # Create agency
     agency_info = tdc.agency()
 
@@ -266,8 +274,7 @@ def test_data_source_by_id_related_agencies(
         flask_client=tdc.flask_client,
         http_method="post",
         endpoint=DATA_SOURCES_POST_DELETE_RELATED_AGENCY_ENDPOINT.format(
-            data_source_id=ds_info.id,
-            agency_id=agency_info.id
+            data_source_id=ds_info.id, agency_id=agency_info.id
         ),
         headers=tdc.get_admin_tus().jwt_authorization_header,
     )
@@ -285,8 +292,7 @@ def test_data_source_by_id_related_agencies(
         flask_client=tdc.flask_client,
         http_method="delete",
         endpoint=DATA_SOURCES_POST_DELETE_RELATED_AGENCY_ENDPOINT.format(
-            data_source_id=ds_info.id,
-            agency_id=agency_info.id
+            data_source_id=ds_info.id, agency_id=agency_info.id
         ),
         headers=tdc.get_admin_tus().jwt_authorization_header,
     )
@@ -296,4 +302,3 @@ def test_data_source_by_id_related_agencies(
     json_data = get_related_agencies()
     assert len(json_data["data"]) == 0
     assert json_data["metadata"]["count"] == 0
-

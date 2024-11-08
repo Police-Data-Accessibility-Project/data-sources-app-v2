@@ -10,8 +10,10 @@ from middleware.exceptions import (
 from middleware.security import (
     check_permissions,
 )
-from middleware.primary_resource_logic.api_key_logic import INVALID_API_KEY_MESSAGE, \
-    check_api_key
+from middleware.primary_resource_logic.api_key_logic import (
+    INVALID_API_KEY_MESSAGE,
+    check_api_key,
+)
 from middleware.decorators import api_key_required
 from tests.helper_scripts.DynamicMagicMock import DynamicMagicMock
 from tests.helper_scripts.common_mocks_and_patches import patch_abort
@@ -49,7 +51,7 @@ def check_permissions_mocks():
     mock = CheckPermissionsMocks(
         patch_root=PATCH_ROOT,
     )
-    mock.get_jwt_identity.return_value = mock.user_email
+    mock.get_jwt_identity.return_value = {"user_email": mock.user_email, "id": mock.id}
     mock.get_db_client.return_value = mock.db_client
     mock.PermissionsManager.return_value = mock.permissions_manager_instance
     return mock
@@ -87,4 +89,3 @@ def test_check_permissions_user_does_not_have_permission(check_permissions_mocks
         code=HTTPStatus.FORBIDDEN,
         message="You do not have permission to access this endpoint",
     )
-
