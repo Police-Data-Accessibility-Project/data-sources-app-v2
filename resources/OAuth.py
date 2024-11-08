@@ -24,8 +24,8 @@ class GithubOAuth(PsycopgResource):
         schema_config=SchemaConfigs.AUTH_GITHUB_OAUTH,
         response_info=ResponseInfo(
             response_dictionary={
-                HTTPStatus.FOUND: "Returns redirect link to OAuth.",
-                HTTPStatus.INTERNAL_SERVER_ERROR: "Internal Server Error."
+                HTTPStatus.FOUND.value: "Returns redirect link to OAuth.",
+                HTTPStatus.INTERNAL_SERVER_ERROR.value: "Internal Server Error."
             }
         ),
         description="Directs user to OAuth page for App."
