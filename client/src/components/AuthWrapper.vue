@@ -7,13 +7,11 @@
 <script setup>
 import debounce from 'lodash/debounce';
 import { useAuthStore } from '@/stores/auth';
-import { useUserStore } from '@/stores/user';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
 const { refreshAccessToken, setRedirectTo, logout, tokens, isAuthenticated } =
 	useAuthStore();
-const { id: userId } = useUserStore();
 
 // Debounce func for performance
 const refreshAuth = debounce(handleAuthRefresh, 350, { leading: true });
