@@ -37,7 +37,7 @@ function handleAuthRefresh() {
 	const shouldRefresh = differenceFromAccess <= 60 * 1000;
 	const shouldLogout = isExpiredAccess;
 
-	// User's token is about to expire or has expired, but we still have valid refresh token—use it to update access.
+	// User's token is about to expire, so we refresh it.
 	if (shouldRefresh && userId) {
 		return refreshAccessToken();
 		// User's tokens are all expired, log out.
