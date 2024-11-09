@@ -4,6 +4,7 @@ from http import HTTPStatus
 import uuid
 
 from database_client.database_client import DatabaseClient
+from resources.endpoint_schema_config import SchemaConfigs
 from tests.conftest import flask_client_with_db
 from tests.helper_scripts.common_test_data import TestDataCreatorFlask
 from tests.helper_scripts.constants import USERS_BASE_ENDPOINT
@@ -84,3 +85,15 @@ def test_user_put(flask_client_with_db):
     assert (
         new_password_hash != old_password_hash
     ), "Password hashes should be different on update"
+
+def test_user_get_by_id(
+    test_data_creator_flask: TestDataCreatorFlask,
+):
+    tdc = test_data_creator_flask
+    tus = tdc.standard_user()
+    data = run_and_validate_request(
+        flask_client=tdc.flask_client,
+        http_method="get",
+        endpoint=f"/api/user/{tus.user_info.user_id}",
+        expected_schema=SchemaConfigs.USER_GET_BY_ID.value.primary_output_schema,
+    )

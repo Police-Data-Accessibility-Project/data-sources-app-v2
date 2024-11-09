@@ -347,3 +347,11 @@ class SchemaConfigs(Enum):
         primary_output_schema=LoginResponseSchema(),
         input_dto_class=RefreshSessionRequestDTO,
     )
+
+    #region User
+    USER_GET_BY_ID = EndpointSchemaConfig(
+        input_schema=GetByIDBaseSchema(),
+        primary_output_schema=GetUserByIDResponseSchema(),
+        input_dto_class=GetByIDBaseDTO,
+    )
+    # endregion
