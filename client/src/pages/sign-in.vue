@@ -70,8 +70,7 @@
 					type="submit"
 					data-test="submit-button"
 				>
-					<Spinner v-if="loading" :show="loading" />
-					{{ !loading ? 'Sign in' : '' }}
+					Sign in
 				</Button>
 			</FormV2>
 			<div

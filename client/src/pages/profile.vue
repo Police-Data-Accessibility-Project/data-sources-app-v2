@@ -39,7 +39,7 @@
 		</template>
 
 		<div class="mt-4">
-			<Button @click="signOut"> Sign out </Button>
+			<Button @click="signOut">Sign out</Button>
 		</div>
 	</main>
 </template>

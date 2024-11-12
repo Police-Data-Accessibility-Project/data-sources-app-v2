@@ -78,11 +78,11 @@
 				<Button
 					class="max-w-full"
 					:disabled="loading"
+					:is-loading="loading"
 					type="submit"
 					data-test="submit-button"
 				>
-					<Spinner :show="loading" />
-					<template v-if="!loading" #default>Create Account</template>
+					Create Account
 				</Button>
 			</FormV2>
 			<div

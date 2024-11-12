@@ -128,12 +128,12 @@
 			>
 				<Button
 					:disabled="requestPending"
+					:is-loading="requestPending"
 					class="min-w-52"
 					intent="primary"
 					type="submit"
 				>
-					<Spinner :show="requestPending" />
-					<template v-if="!requestPending" #default> Submit request </template>
+					Submit request
 				</Button>
 				<Button
 					:disabled="requestPending"
@@ -155,7 +155,6 @@ import {
 	InputText,
 	InputSelect,
 	InputTextArea,
-	Spinner,
 } from 'pdap-design-system';
 import Typeahead from '../components/TypeaheadInput.vue';
 import LocationSelected from '../components/TypeaheadLocationSelected.vue';

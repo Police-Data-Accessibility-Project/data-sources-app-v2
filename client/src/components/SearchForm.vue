@@ -194,7 +194,7 @@ function onChange(values, event) {
 			Object.entries(values).forEach(([key, val]) => {
 				if (key !== 'all-data-types' && val) {
 					update[key] = false;
-					const checkbox = document.querySelector(`input[name=${key}]`);
+					const checkbox = document.querySelector(`input[name="${key}"]`);
 					checkbox.checked = false;
 				}
 			});
