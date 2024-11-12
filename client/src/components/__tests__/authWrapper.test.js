@@ -66,6 +66,7 @@ describe('AuthWrapper', () => {
 	it('logs user out when access token is expired on all expected events', async () => {
 		const auth = useAuthStore();
 		const user = useUserStore();
+
 		auth.$patch({
 			tokens: {
 				accessToken: {

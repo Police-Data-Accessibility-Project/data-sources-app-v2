@@ -13,7 +13,7 @@ import { useUserStore } from '@/stores/user';
 const route = useRoute();
 const { refreshAccessToken, setRedirectTo, logout, tokens, isAuthenticated } =
 	useAuthStore();
-const { id: userId } = useUserStore();
+const user = useUserStore();
 
 // Debounce func for performance
 const refreshAuth = debounce(handleAuthRefresh, 350, { leading: true });
@@ -36,20 +36,21 @@ function handleAuthRefresh() {
 	const differenceFromAccess = tokens.accessToken.expires - now;
 	const isExpiredAccess = differenceFromAccess <= 0;
 	const shouldRefresh = differenceFromAccess <= 60 * 1000 && isAuthenticated();
-	const shouldLogout = isExpiredAccess;
+	const shouldLogout = isExpiredAccess && !!user.id;
 
 	console.debug({
 		differenceFromAccess,
 		isExpiredAccess,
 		shouldRefresh,
 		isAuthenticated: isAuthenticated(),
+		shouldLogout,
 	});
 
 	// User's token is about to expire, so we refresh it.g
 	if (shouldRefresh) {
 		return refreshAccessToken();
 		// User's tokens are all expired, log out.
-	} else if (shouldLogout && userId) {
+	} else if (shouldLogout) {
 		setRedirectTo(route);
 		return logout();
 	} else return;
