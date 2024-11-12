@@ -1,3 +1,11 @@
+<route>
+  {
+    meta: {
+      auth: true
+    }
+  }
+</route>
+
 <template>
 	<main>
 		<h1>Placeholder page</h1>
@@ -86,11 +94,3 @@ async function signOut() {
 	await auth.logout({ ...route });
 }
 </script>
-
-<route>
-  {
-    meta: {
-      auth: true
-    }
-  }
-</route>

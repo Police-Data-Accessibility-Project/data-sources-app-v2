@@ -1,3 +1,11 @@
+<route>
+	{
+		meta: {
+			auth: true
+		}
+	}
+</route>
+
 <template>
 	<main class="overflow-x-hidden max-w-[1080px] px-6 md:px-10 mx-auto">
 		<h1>New request</h1>
@@ -156,10 +164,10 @@ import {
 	InputSelect,
 	InputTextArea,
 } from 'pdap-design-system';
-import Typeahead from '../components/TypeaheadInput.vue';
-import LocationSelected from '../components/TypeaheadLocationSelected.vue';
+import Typeahead from '@/components/TypeaheadInput.vue';
+import LocationSelected from '@/components/TypeaheadLocationSelected.vue';
 import { useRequestStore } from '@/stores/request';
-import formatText from '@/util/formatLocationForDisplay';
+import { formatText } from './_util';
 import { useSearchStore } from '@/stores/search';
 import _debounce from 'lodash/debounce';
 import _cloneDeep from 'lodash/cloneDeep';
@@ -422,11 +430,3 @@ h4 {
 	transform: translateX(50%);
 }
 </style>
-
-<route>
-	{
-		meta: {
-			auth: true
-		}
-	}
-</route>

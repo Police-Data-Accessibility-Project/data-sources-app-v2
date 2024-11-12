@@ -106,7 +106,7 @@ import { useAuthStore } from '@/stores/auth';
 const auth = useAuthStore();
 
 export const useGithubAuth = defineBasicLoader('/sign-in', async (route) => {
-	if (auth.isAuthenticated)
+	if (auth.isAuthenticated())
 		throw new NavigationResult(auth.redirectTo ?? { path: '/profile' });
 
 	try {
@@ -174,7 +174,6 @@ const VALIDATION_SCHEMA = [
 ];
 
 // Store
-const { loginWithEmail } = useAuthStore();
 const {
 	data: githubAuthData,
 	error: githubAuthError,
@@ -194,7 +193,7 @@ async function onSubmit(formValues) {
 		loading.value = true;
 		const { email, password } = formValues;
 
-		await loginWithEmail(email, password);
+		await auth.loginWithEmail(email, password);
 
 		error.value = undefined;
 		router.push(auth.redirectTo ?? '/profile');
@@ -212,6 +211,6 @@ async function onSubmit(formValues) {
 
 <style scoped>
 .error {
-	@apply border-red-800 dark:border-red-300 items-center justify-start flex bg-red-300 text-red-800 p-1 text-sm rounded-sm max-w-full p-2;
+	@apply border-red-800 dark:border-red-300 items-center justify-start flex bg-red-300 text-red-800 text-sm rounded-sm max-w-full p-2;
 }
 </style>
