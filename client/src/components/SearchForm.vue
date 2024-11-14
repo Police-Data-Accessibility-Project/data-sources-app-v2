@@ -56,7 +56,7 @@
 		<p class="text-lg mt-8 mb-4">
 			If you have a question to answer, we can help
 		</p>
-		<RouterLink class="pdap-button-primary" to="/request">
+		<RouterLink class="pdap-button-primary" to="/request/create">
 			Make a Request
 		</RouterLink>
 	</div>
