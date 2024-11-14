@@ -189,17 +189,19 @@ import { useRoute, useRouter } from 'vue-router';
 import _cloneDeep from 'lodash/cloneDeep';
 import { useSwipe } from '@vueuse/core';
 import { ref } from 'vue';
+import { useDataSourceStore } from '@/stores/data-source';
 
 const search = useSearchStore();
+const dataSourceStore = useDataSourceStore();
 
-const previous = ref(search.getPreviousDataSourceRoute);
+const previous = ref(dataSourceStore.previousDataSourceRoute);
 
 export const useDataSourceData = defineBasicLoader(
 	'/data-source/:id',
 	async (route) => {
 		const dataSourceId = route.params.id;
 		// create deep clone of previous route.
-		previous.value = _cloneDeep(search.getPreviousDataSourceRoute);
+		previous.value = _cloneDeep(dataSourceStore.previousDataSourceRoute);
 		// Use previous route to determine if nav is increment or decrement (this is for dynamic transition)
 		const navIs =
 			search.mostRecentSearchIds.indexOf(Number(previous.value?.params?.id)) >
@@ -207,10 +209,10 @@ export const useDataSourceData = defineBasicLoader(
 				? 'decrement'
 				: 'increment';
 
-		const results = await search.getDataSource(dataSourceId);
+		const results = await dataSourceStore.getDataSource(dataSourceId);
 
 		// Then set current route to prev before returning data
-		search.setPreviousDataSourceRoute(route);
+		dataSourceStore.setPreviousDataSourceRoute(route);
 
 		return {
 			...results.data.data,
@@ -351,16 +353,13 @@ hgroup {
 	opacity: 0;
 }
 
-.increment-enter-from {
+.increment-enter-from,
+.decrement-leave-to {
 	transform: translateX(15%);
 }
 
-.decrement-enter-from {
+.decrement-enter-from,
+.increment-leave-to {
 	transform: translateX(-15%);
-}
-
-.increment-leave-to,
-.decrement-leave-to {
-	transform: translateX(0);
 }
 </style>
