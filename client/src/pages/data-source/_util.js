@@ -159,3 +159,7 @@ export function formatDateForSearchResults(date) {
 		return date.toLocaleDateString('es-pa');
 	}
 }
+
+export function formatText(item) {
+	return item.display_name;
+}

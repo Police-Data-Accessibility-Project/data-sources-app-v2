@@ -11,60 +11,70 @@
 		<h1>New request</h1>
 
 		<FormV2
-			id="new-request"
+			id="new-data-source"
 			ref="formRef"
 			:error="formError"
-			class="grid md:grid-cols-2 gap-x-4 [&>.pdap-form-error-message]:md:col-span-2"
+			class="flex flex-col"
 			name="new-request"
 			:schema="SCHEMA"
 			@error="error"
 			@submit="submit"
 		>
 			<InputText
-				:id="'input-' + INPUT_NAMES.title"
+				:id="'input-' + INPUT_NAMES.url"
 				class="md:col-span-2"
-				:name="INPUT_NAMES.title"
-				placeholder="Briefly describe the general purpose or topic."
+				:name="INPUT_NAMES.url"
+				placeholder="A link where these records can be found or are referenced."
 			>
 				<template #label>
-					<h4>Request title</h4>
+					<h4>Source URL</h4>
 				</template>
 			</InputText>
 
-			<label :for="INPUT_NAMES.area" class="py-1 md:col-span-2 mb-1">
-				<h4>What area is covered by your request?</h4>
+			<InputText
+				:id="'input-' + INPUT_NAMES.readMeUrl"
+				class="md:col-span-2"
+				:name="INPUT_NAMES.readMeUrl"
+				placeholder="A link to any contextual info, like a data dictionary or explanation of the data."
+			>
+				<template #label>
+					<h4>README URL</h4>
+				</template>
+			</InputText>
+
+			<label :for="INPUT_NAMES.agencies" class="py-1 md:col-span-2 mb-1">
+				<h4>What agency is covered by this source?</h4>
 			</label>
 
-			<TransitionGroup v-if="selectedLocations" name="list">
-				<LocationSelected
-					v-for="location in selectedLocations"
+			<TransitionGroup v-if="selectedAgencies" name="list">
+				<AgencySelected
+					v-for="location in selectedAgencies"
 					:key="JSON.stringify(location)"
 					class="md:col-span-2"
 					:content="formatText(location)"
 					:on-click="
 						() => {
-							const indexToRemove = selectedLocations.indexOf(location);
-							if (indexToRemove > -1)
-								selectedLocations.splice(indexToRemove, 1);
+							const indexToRemove = selectedAgencies.indexOf(location);
+							if (indexToRemove > -1) selectedAgencies.splice(indexToRemove, 1);
 						}
 					"
 				/>
 			</TransitionGroup>
 
 			<Typeahead
-				:id="INPUT_NAMES.area"
+				:id="INPUT_NAMES.agencies"
 				ref="typeaheadRef"
 				class="md:col-span-2 mb-2"
 				:error="typeaheadError"
 				:format-item-for-display="formatText"
 				:items="items"
 				:placeholder="
-					selectedLocations.length ? 'Enter another place' : 'Enter a place'
+					selectedAgencies.length ? 'Enter another place' : 'Enter a place'
 				"
 				@select-item="
 					(item) => {
 						if (item) {
-							selectedLocations = [...selectedLocations, item];
+							selectedAgencies = [...selectedAgencies, item];
 							items = [];
 							typeaheadRef.clearInput();
 							typeaheadRef.focusInput();
@@ -77,59 +87,45 @@
 				<template #item="item">
 					<!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
 					<span v-html="typeaheadRef?.boldMatchText(formatText(item))" />
-					<span class="locale-type">
-						{{ item.type }}
-					</span>
 					<span class="select">Select</span>
 				</template>
 			</Typeahead>
 
 			<InputText
-				:id="'input-' + INPUT_NAMES.range"
-				class="md:col-span-2"
-				:name="INPUT_NAMES.range"
-				placeholder="What dates or years should the data cover?"
+				:id="'input-' + INPUT_NAMES.name"
+				class="md:col-start-1 md:col-end-2"
+				:name="INPUT_NAMES.name"
+				placeholder="For example, “Arrest records for Portsmouth PD”"
+				rows="4"
 			>
 				<template #label>
-					<h4>Coverage range</h4>
+					<h4>Source name</h4>
 				</template>
 			</InputText>
 
-			<InputSelect
-				:id="'input-' + INPUT_NAMES.target"
-				class="md:col-span-2"
-				:name="INPUT_NAMES.target"
-				:options="SELECT_OPTS"
-				placeholder="When would you like to see this request filled?"
-			>
-				<template #label>
-					<h4>Target date</h4>
-				</template>
-			</InputSelect>
-
 			<InputTextArea
-				:id="'input-' + INPUT_NAMES.notes"
-				class="md:col-start-1 md:col-end-2"
-				:name="INPUT_NAMES.notes"
-				placeholder="What are you trying to learn? Is there anything you've already tried?"
-				rows="4"
-			>
-				<template #label>
-					<h4>Request notes</h4>
-				</template>
-			</InputTextArea>
-
-			<InputTextArea
-				:id="'input-' + INPUT_NAMES.requirements"
+				:id="'input-' + INPUT_NAMES.description"
 				class="md:col-start-2 md:col-end-3"
-				:name="INPUT_NAMES.requirements"
-				placeholder="Details the data must have, like 'case numbers' or 'incident location'."
+				:name="INPUT_NAMES.description"
+				placeholder="If the source is difficult to understand or categorize, please share more information about how it was processed or can be used."
 				rows="4"
 			>
 				<template #label>
-					<h4>Data requirements</h4>
+					<h4>Description</h4>
 				</template>
 			</InputTextArea>
+
+			<InputText
+				:id="'input-' + INPUT_NAMES.contact"
+				class="md:col-start-1 md:col-end-2"
+				:name="INPUT_NAMES.contact"
+				placeholder="Please provide an email address so we can give credit or follow up with questions."
+				rows="4"
+			>
+				<template #label>
+					<h4>Contact info</h4>
+				</template>
+			</InputText>
 
 			<div
 				class="flex gap-2 flex-col max-w-full md:flex-row md:col-start-1 md:col-end-2 mt-8"
@@ -157,15 +153,9 @@
 </template>
 
 <script setup>
-import {
-	Button,
-	FormV2,
-	InputText,
-	InputSelect,
-	InputTextArea,
-} from 'pdap-design-system';
+import { Button, FormV2, InputText, InputTextArea } from 'pdap-design-system';
 import Typeahead from '@/components/TypeaheadInput.vue';
-import LocationSelected from '@/components/TypeaheadSelected.vue';
+import AgencySelected from '@/components/TypeaheadSelected.vue';
 import { useRequestStore } from '@/stores/request';
 import { formatText } from './_util';
 import _debounce from 'lodash/debounce';
@@ -178,41 +168,41 @@ const { createRequest } = useRequestStore();
 
 const INPUT_NAMES = {
 	// contact: 'contact',
-	title: 'title',
-	area: 'area',
-	range: 'coverage_range',
-	target: 'request_urgency',
-	notes: 'submission_notes',
-	requirements: 'data_requirements',
+	url: 'source_url',
+	readMeUrl: 'readme_url',
+	agencies: 'agencies',
+	name: 'submitted_name',
+	description: 'description',
+	contact: 'submitter_contact_info',
 };
-const SELECT_OPTS = [
-	{ value: 'urgent', label: 'Urgent (Less than a week)' },
-	{
-		value: 'somewhat_urgent',
-		label: 'Somewhat urgent (Less than a month)',
-	},
-	{
-		value: 'not_urgent',
-		label: 'Not urgent (A few months)',
-	},
-	{
-		value: 'long_term',
-		label: 'Long term (6 months or more)',
-	},
-	{ value: 'indefinite_unknown', label: 'Indefinite/Unknown' },
-];
 const SCHEMA = [
-	// {
-	// 	name: INPUT_NAMES.contact,
-	// 	validators: {
-	// 		required: {
-	// 			value: true,
-	// 			message: 'Please let us know how to get in touch about this request.',
-	// 		},
-	// 	},
-	// },
 	{
-		name: INPUT_NAMES.title,
+		name: INPUT_NAMES.url,
+		validators: {
+			required: {
+				value: true,
+				message:
+					'Please submit a url where data is accessible for this source.',
+			},
+			url: {
+				value: true,
+				message:
+					'Please submit a valid url, including the scheme (http/https).',
+			},
+		},
+	},
+	{
+		name: INPUT_NAMES.readMeUrl,
+		validators: {
+			url: {
+				value: true,
+				message:
+					'Please submit a valid url, including the scheme (http/https).',
+			},
+		},
+	},
+	{
+		name: INPUT_NAMES.name,
 		validators: {
 			required: {
 				value: true,
@@ -221,45 +211,26 @@ const SCHEMA = [
 		},
 	},
 	{
-		name: INPUT_NAMES.range,
+		name: INPUT_NAMES.description,
 		validators: {
 			required: {
 				value: true,
-				message: 'Please let us know a range of years to look for this data.',
+				message: 'Please describe this request.',
 			},
 		},
 	},
 	{
-		name: INPUT_NAMES.target,
+		name: INPUT_NAMES.contact,
 		validators: {
-			required: {
+			email: {
 				value: true,
-				message:
-					"Please let us know when you'd like this request to be filled.",
-			},
-		},
-	},
-	{
-		name: INPUT_NAMES.notes,
-		validators: {
-			required: {
-				value: true,
-				message: 'Please let us know a little more about your request.',
-			},
-		},
-	},
-	{
-		name: INPUT_NAMES.requirements,
-		validators: {
-			required: {
-				value: true,
-				message: 'Please let us know the requirements for this request.',
+				message: 'Please provide a valid email address.',
 			},
 		},
 	},
 ];
 
-const selectedLocations = ref([]);
+const selectedAgencies = ref([]);
 const items = ref([]);
 const formRef = ref();
 const typeaheadRef = ref();
@@ -273,7 +244,7 @@ const fetchTypeaheadResults = _debounce(
 		try {
 			if (e.target.value.length > 1) {
 				const suggestions = await axios.get(
-					`${import.meta.env.VITE_VUE_API_BASE_URL}/typeahead/locations`,
+					`${import.meta.env.VITE_VUE_API_BASE_URL}/typeahead/agencies`,
 					{
 						headers: {
 							Authorization: import.meta.env.VITE_ADMIN_API_KEY,
@@ -285,7 +256,9 @@ const fetchTypeaheadResults = _debounce(
 				).data.suggestions;
 
 				const filteredBySelected = suggestions.filter((sugg) => {
-					return !selectedLocations.value.find((loc) => _isEqual(sugg, loc));
+					return !selectedAgencies.value.find((agency) =>
+						_isEqual(sugg, agency),
+					);
 				});
 
 				items.value = filteredBySelected.length
@@ -305,7 +278,7 @@ const fetchTypeaheadResults = _debounce(
 async function clear() {
 	const newVal = Object.values(INPUT_NAMES)
 		// Exclude typeahead
-		.filter((n) => n !== INPUT_NAMES.area)
+		.filter((n) => n !== INPUT_NAMES.agencies)
 		.reduce(
 			(acc, cur) => ({
 				...acc,
@@ -317,18 +290,18 @@ async function clear() {
 	formRef.value.setValues(newVal);
 	await nextTick();
 	items.value = [];
-	selectedLocations.value = [];
+	selectedAgencies.value = [];
 }
 
 function error(v$) {
 	// Janky error handling for typeahead because it's not a controlled input - on form error, check for this error, too
-	if (v$.value.$anyDirty && !selectedLocations.value.length) {
+	if (v$.value.$anyDirty && !selectedAgencies.value.length) {
 		typeaheadError.value = 'Please include a location with your request';
 	}
 }
 
 async function submit(values) {
-	if (!selectedLocations.value.length) {
+	if (!selectedAgencies.value.length) {
 		// Janky error handling for typeahead because it's not a controlled input - if form doesn't error, check for this error anyway.
 		typeaheadError.value = 'Please include a location with your request';
 		return;
@@ -339,7 +312,7 @@ async function submit(values) {
 	delete values[INPUT_NAMES.contact];
 
 	// Create new array. In case of error, we need the original array to remain unmodified
-	const locations = _cloneDeep(selectedLocations.value);
+	const locations = _cloneDeep(selectedAgencies.value);
 
 	const requestBody = {
 		request_info: values,
@@ -363,7 +336,7 @@ async function submit(values) {
 		}
 	} finally {
 		if (!isError) {
-			selectedLocations.value = [];
+			selectedAgencies.value = [];
 		}
 		requestPending.value = false;
 	}
@@ -371,7 +344,7 @@ async function submit(values) {
 
 watch(
 	// More janky typeahead error handling
-	() => selectedLocations.value,
+	() => selectedAgencies.value,
 	(selected) => {
 		// clearing when error exists and value selected
 		if (selected.length && typeaheadError.value) {
@@ -395,7 +368,7 @@ h4 {
 	@apply ml-auto;
 }
 
-.locale-type {
+.agency-type {
 	@apply border-solid border-2 border-neutral-700 dark:border-neutral-400 rounded-full text-neutral-700 dark:text-neutral-400 text-xs @md:text-sm px-2 py-1;
 }
 

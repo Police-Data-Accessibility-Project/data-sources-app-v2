@@ -76,11 +76,8 @@ import { STATES_TO_ABBREVIATIONS } from '@/util/constants';
 import _debounce from 'lodash/debounce';
 import _isEqual from 'lodash/isEqual';
 import { useRouter, RouterLink, useRoute } from 'vue-router';
-import { useSearchStore } from '@/stores/search';
 
 const router = useRouter();
-const { sessionLocationTypeaheadCache, upsertSessionLocationTypeaheadCache } =
-	useSearchStore();
 
 const { buttonCopy } = defineProps({
 	buttonCopy: String,
@@ -286,27 +283,17 @@ const fetchTypeaheadResults = _debounce(
 	async (e) => {
 		try {
 			if (e.target.value.length > 1) {
-				const suggestions =
-					// Cache has search results return that
-					sessionLocationTypeaheadCache?.[e.target.value.toLowerCase()] ??
-					// Otherwise fetch
-					(
-						await axios.get(
-							`${import.meta.env.VITE_VUE_API_BASE_URL}/typeahead/locations`,
-							{
-								headers: {
-									Authorization: import.meta.env.VITE_ADMIN_API_KEY,
-								},
-								params: {
-									query: e.target.value,
-								},
-							},
-						)
-					).data.suggestions;
-
-				upsertSessionLocationTypeaheadCache({
-					[e.target.value.toLowerCase()]: suggestions,
-				});
+				const suggestions = await axios.get(
+					`${import.meta.env.VITE_VUE_API_BASE_URL}/typeahead/locations`,
+					{
+						headers: {
+							Authorization: import.meta.env.VITE_ADMIN_API_KEY,
+						},
+						params: {
+							query: e.target.value,
+						},
+					},
+				).data.suggestions;
 
 				items.value = suggestions.length ? suggestions : undefined;
 			} else {

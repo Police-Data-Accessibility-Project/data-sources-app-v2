@@ -12,8 +12,6 @@ export const useSearchStore = defineStore('search', {
 	state: () => ({
 		/** Searches performed during session. */
 		sessionSearchResultsCache: {},
-		/** Strings searched via location typeahead, and an array of location suggestions returned */
-		sessionLocationTypeaheadCache: {},
 		/** Needed for `NEXT` / `BACK` functionality in data source id view */
 		mostRecentSearchIds: [],
 	}),
@@ -57,15 +55,6 @@ export const useSearchStore = defineStore('search', {
 		setMostRecentSearchIds(ids) {
 			this.$patch({
 				mostRecentSearchIds: ids,
-			});
-		},
-
-		upsertSessionLocationTypeaheadCache(updatedValues) {
-			this.$patch({
-				sessionLocationTypeaheadCache: {
-					...this.sessionDataSourceCache,
-					...updatedValues,
-				},
 			});
 		},
 	},
