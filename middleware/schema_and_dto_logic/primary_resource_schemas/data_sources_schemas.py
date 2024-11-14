@@ -69,6 +69,7 @@ class DataSourceEntryDataPostDTO:
 @dataclass
 class DataSourcesPostDTO:
     entry_data: DataSourceEntryDataPostDTO
+    linked_agency_ids: Optional[List[int]] = None
 
 
 class DataSourceBaseSchema(Schema):
@@ -277,7 +278,7 @@ class DataSourceBaseSchema(Schema):
             "Airtable UID of the associated data source request"
         ),
     )
-    broken_source_url_as_of = fields.Date(
+    broken_source_url_as_of = fields.DateTime(
         allow_none=True,
         format="iso",
         metadata=get_json_metadata("When the url was marked as broken."),
@@ -381,6 +382,15 @@ class DataSourcesPostSchema(Schema):
             description="The data source to be created",
             nested_dto_class=DataSourceEntryDataPostDTO,
         ),
+    )
+    linked_agency_ids = fields.List(
+        fields.Integer(
+            allow_none=True,
+            metadata=get_json_metadata(
+                "The agency ids associated with the data source."
+            ),
+        ),
+        metadata=get_json_metadata("The agency ids associated with the data source."),
     )
 
 
