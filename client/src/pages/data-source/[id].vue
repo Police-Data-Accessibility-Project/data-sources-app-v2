@@ -147,11 +147,15 @@
 								<h4>{{ record.title }}</h4>
 
 								<!-- If an array, render and nest inside of div -->
-								<div v-if="Array.isArray(dataSource[record.key])">
+								<div
+									v-if="Array.isArray(dataSource[record.key])"
+									class="flex gap-2"
+								>
 									<component
 										:is="record.component ?? 'p'"
 										v-for="item in dataSource[record.key]"
 										:key="item"
+										:class="record.classNames"
 									>
 										{{ formatResult(record, item) }}
 									</component>
