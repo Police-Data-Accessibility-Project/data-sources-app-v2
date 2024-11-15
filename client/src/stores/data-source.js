@@ -15,8 +15,6 @@ export const useDataSourceStore = defineStore('data-source', {
 		sessionDataSourceCache: {},
 		/** Previous route visited - useful for determining whether we are incrementing or decrementing pages in data source by id */
 		previousDataSourceRoute: null,
-		/** Strings searched via location typeahead, and an array of agency suggestions returned */
-		sessionAgencyTypeaheadCache: {},
 	}),
 	// persist: {
 	// 	storage: sessionStorage,
@@ -73,15 +71,6 @@ export const useDataSourceStore = defineStore('data-source', {
 		setPreviousDataSourceRoute(route) {
 			this.$patch({
 				previousDataSourceRoute: route,
-			});
-		},
-
-		upsertSessionAgencyTypeaheadCache(updatedValues) {
-			this.$patch({
-				sessionAgencyTypeaheadCache: {
-					...this.sessionAgencyTypeaheadCache,
-					...updatedValues,
-				},
 			});
 		},
 	},
