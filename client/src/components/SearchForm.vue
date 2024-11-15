@@ -283,7 +283,7 @@ const fetchTypeaheadResults = _debounce(
 	async (e) => {
 		try {
 			if (e.target.value.length > 1) {
-				const suggestions = await axios.get(
+				const response = await axios.get(
 					`${import.meta.env.VITE_VUE_API_BASE_URL}/typeahead/locations`,
 					{
 						headers: {
@@ -293,7 +293,9 @@ const fetchTypeaheadResults = _debounce(
 							query: e.target.value,
 						},
 					},
-				).data.suggestions;
+				);
+
+				const suggestions = response.data.suggestions;
 
 				items.value = suggestions.length ? suggestions : undefined;
 			} else {
