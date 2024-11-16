@@ -27,7 +27,9 @@ from tests.conftest import (
 )
 from conftest import test_data_creator_flask, monkeysession
 from tests.helper_scripts.common_endpoint_calls import create_data_source_with_endpoint
-from tests.helper_scripts.common_test_data import TestDataCreatorFlask, generate_test_data_from_schema
+from tests.helper_scripts.common_test_data import get_test_name
+from tests.helper_scripts.helper_classes.SchemaTestDataGenerator import generate_test_data_from_schema
+from tests.helper_scripts.helper_classes.TestDataCreatorFlask import TestDataCreatorFlask
 from tests.helper_scripts.common_test_functions import assert_contains_key_value_pairs
 from tests.helper_scripts.helper_functions import (
     get_boolean_dictionary,
@@ -118,6 +120,7 @@ def test_data_sources_post(
     Test that POST call to /data-sources endpoint successfully creates a new data source with a unique name and verifies its existence in the database
     """
     tdc = test_data_creator_flask
+    tus = tdc.standard_user()
 
     agency_id = tdc.agency().id
 
@@ -140,7 +143,7 @@ def test_data_sources_post(
         flask_client=tdc.flask_client,
         http_method="post",
         endpoint=f"{DATA_SOURCES_BASE_ENDPOINT}",
-        headers=tdc.get_admin_tus().jwt_authorization_header,
+        headers=tus.jwt_authorization_header,
         json={
             "entry_data": entry_data,
             "linked_agency_ids": [agency_id],
@@ -192,7 +195,7 @@ def test_data_sources_by_id_put(test_data_creator_flask: TestDataCreatorFlask):
     cdr = tdc.data_source()
 
     entry_data = {
-        "submitted_name": uuid.uuid4().hex,
+        "submitted_name": get_test_name(),
         "description": uuid.uuid4().hex,
         "source_url": uuid.uuid4().hex,
         "agency_supplied": True,
