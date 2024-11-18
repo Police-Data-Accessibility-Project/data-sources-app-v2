@@ -35,6 +35,7 @@ agencies_column_permissions = create_column_permissions_string_table(
 )
 
 
+
 @namespace_agencies.route("")
 class AgenciesByPage(PsycopgResource):
     """Represents a resource for fetching approved agency data from the database."""
