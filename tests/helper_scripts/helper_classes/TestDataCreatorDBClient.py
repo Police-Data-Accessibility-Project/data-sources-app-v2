@@ -101,12 +101,6 @@ class TestDataCreatorDBClient:
             like_column_name="name",
         )
 
-        # Remove test data from user
-        self.helper.delete_test_like(
-            table_name=Relations.USERS.value,
-            like_column_name="email",
-        )
-
         # Remove test data from data source
         self.helper.delete_test_like(
             table_name=Relations.DATA_SOURCES.value,
@@ -114,8 +108,11 @@ class TestDataCreatorDBClient:
         )
 
 
-
-
+        # Remove test data from user
+        self.helper.delete_test_like(
+            table_name=Relations.USERS.value,
+            like_column_name="email",
+        )
 
         self.helper.clear_user_notification_queue()
 
