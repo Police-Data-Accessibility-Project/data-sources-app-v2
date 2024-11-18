@@ -311,7 +311,7 @@ function formatResult(record, item) {
 }
 
 hgroup {
-	@apply mt-4;
+	@apply mt-4 self-start;
 	flex: 0 0 100%;
 }
 
