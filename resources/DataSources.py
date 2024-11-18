@@ -6,6 +6,8 @@ from middleware.access_logic import (
     WRITE_ONLY_AUTH_INFO,
     GET_AUTH_INFO, STANDARD_JWT_AUTH_INFO,
 )
+from middleware.column_permission_logic import create_column_permissions_string_table
+from middleware.enums import Relations
 from middleware.schema_and_dto_logic.common_schemas_and_dtos import (
     EntryCreateUpdateRequestDTO,
     EntryDataRequestSchema,
@@ -34,7 +36,7 @@ from middleware.schema_and_dto_logic.primary_resource_schemas.data_sources_advan
 from resources.endpoint_schema_config import SchemaConfigs
 from resources.resource_helpers import (
     create_response_dictionary,
-    ResponseInfo,
+    ResponseInfo, column_permissions_description,
 )
 from utilities.namespace import create_namespace, AppNamespaces
 from resources.PsycopgResource import PsycopgResource
@@ -43,10 +45,9 @@ from middleware.schema_and_dto_logic.non_dto_dataclasses import SchemaPopulatePa
 
 namespace_data_source = create_namespace(AppNamespaces.DATA_SOURCES)
 
-    # This endpoint no longer works because of the other data source endpoint
-    # It is interpreted as another data source id
-    # But we have not yet decided whether to modify or remove it entirely
-
+data_sources_column_permissions = create_column_permissions_string_table(
+    relation=Relations.DATA_SOURCES.value
+)
 
 @namespace_data_source.route("/data-sources-map")
 class DataSourcesMap(PsycopgResource):
@@ -90,7 +91,11 @@ class DataSourceById(PsycopgResource):
         response_info=ResponseInfo(
             success_message="Returns information on the specific data source.",
         ),
-        description="Get details of a specific data source by its ID.",
+        description=column_permissions_description(
+            head_description="Get details of a specific data source by its ID.",
+            sub_description="Columns returned are determined by the user's access level.",
+            column_permissions_str_table=data_sources_column_permissions
+        )
     )
     @limiter.limit("50/minute;250/hour")
     def get(self, access_info: AccessInfo, resource_id: str) -> Response:
@@ -178,7 +183,11 @@ class DataSources(PsycopgResource):
         response_info=ResponseInfo(
             success_message="Returns all requested data sources.",
         ),
-        description="Retrieves all data sources.",
+        description=column_permissions_description(
+            head_description="Retrieves all data sources",
+            sub_description="Columns returned are determined by the user's access level.",
+            column_permissions_str_table=data_sources_column_permissions
+        ),
     )
     def get(self, access_info: AccessInfo) -> Response:
         """
