@@ -16,20 +16,18 @@ export const useDataSourceStore = defineStore('data-source', {
 		/** Previous route visited - useful for determining whether we are incrementing or decrementing pages in data source by id */
 		previousDataSourceRoute: null,
 	}),
-	// persist: {
-	// 	storage: sessionStorage,
-	// },
+	persist: {
+		storage: sessionStorage,
+	},
 	actions: {
 		async createDataSource(data) {
 			const auth = useAuthStore();
-			const response = await axios.post(DATA_SOURCES_URL, data, {
+			return await axios.post(DATA_SOURCES_URL, data, {
 				headers: {
 					...HEADERS_BASE,
 					authorization: `Bearer ${auth.$state.tokens.accessToken.value}`,
 				},
 			});
-
-			return response.data;
 		},
 
 		async getDataSource(id) {

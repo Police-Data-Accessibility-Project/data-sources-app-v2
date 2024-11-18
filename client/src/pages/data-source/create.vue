@@ -8,7 +8,7 @@
 
 <template>
 	<main class="overflow-x-hidden max-w-[1080px] px-6 md:px-10 mx-auto">
-		<h1>New request</h1>
+		<h1>New data source</h1>
 
 		<FormV2
 			id="new-data-source"
@@ -48,13 +48,13 @@
 
 			<TransitionGroup v-if="selectedAgencies" name="list">
 				<AgencySelected
-					v-for="location in selectedAgencies"
-					:key="JSON.stringify(location)"
+					v-for="agency in selectedAgencies"
+					:key="JSON.stringify(agency)"
 					class="md:col-span-2"
-					:content="formatText(location)"
+					:content="formatText(agency)"
 					:on-click="
 						() => {
-							const indexToRemove = selectedAgencies.indexOf(location);
+							const indexToRemove = selectedAgencies.indexOf(agency);
 							if (indexToRemove > -1) selectedAgencies.splice(indexToRemove, 1);
 						}
 					"
@@ -69,7 +69,7 @@
 				:format-item-for-display="formatText"
 				:items="items"
 				:placeholder="
-					selectedAgencies.length ? 'Enter another place' : 'Enter a place'
+					selectedAgencies.length ? 'Enter another agency' : 'Enter an agency'
 				"
 				@select-item="
 					(item) => {
@@ -156,15 +156,15 @@
 import { Button, FormV2, InputText, InputTextArea } from 'pdap-design-system';
 import Typeahead from '@/components/TypeaheadInput.vue';
 import AgencySelected from '@/components/TypeaheadSelected.vue';
-import { useRequestStore } from '@/stores/request';
 import { formatText } from './_util';
 import _debounce from 'lodash/debounce';
 import _cloneDeep from 'lodash/cloneDeep';
-import { nextTick, ref, watch } from 'vue';
-import axios from 'axios';
 import _isEqual from 'lodash/isEqual';
+import { nextTick, ref } from 'vue';
+import axios from 'axios';
+import { useDataSourceStore } from '@/stores/data-source';
 
-const { createRequest } = useRequestStore();
+const { createDataSource } = useDataSourceStore();
 
 const INPUT_NAMES = {
 	// contact: 'contact',
@@ -243,7 +243,7 @@ const fetchTypeaheadResults = _debounce(
 	async (e) => {
 		try {
 			if (e.target.value.length > 1) {
-				const suggestions = await axios.get(
+				const response = await axios.get(
 					`${import.meta.env.VITE_VUE_API_BASE_URL}/typeahead/agencies`,
 					{
 						headers: {
@@ -253,8 +253,8 @@ const fetchTypeaheadResults = _debounce(
 							query: e.target.value,
 						},
 					},
-				).data.suggestions;
-
+				);
+				const suggestions = response?.data?.suggestions;
 				const filteredBySelected = suggestions.filter((sugg) => {
 					return !selectedAgencies.value.find((agency) =>
 						_isEqual(sugg, agency),
@@ -293,40 +293,19 @@ async function clear() {
 	selectedAgencies.value = [];
 }
 
-function error(v$) {
-	// Janky error handling for typeahead because it's not a controlled input - on form error, check for this error, too
-	if (v$.value.$anyDirty && !selectedAgencies.value.length) {
-		typeaheadError.value = 'Please include a location with your request';
-	}
-}
-
 async function submit(values) {
-	if (!selectedAgencies.value.length) {
-		// Janky error handling for typeahead because it's not a controlled input - if form doesn't error, check for this error anyway.
-		typeaheadError.value = 'Please include a location with your request';
-		return;
-	}
 	requestPending.value = true;
 
-	// Remove contact for now, as it's not present on the API endpoint yet TODO: remove this when API is updated
-	delete values[INPUT_NAMES.contact];
-
 	// Create new array. In case of error, we need the original array to remain unmodified
-	const locations = _cloneDeep(selectedAgencies.value);
+	const agencies = _cloneDeep(selectedAgencies.value);
 
 	const requestBody = {
-		request_info: values,
-		location_infos: [
-			...locations.map((loc) => {
-				delete loc.display_name;
-				delete loc.location_id;
-				return loc;
-			}),
-		],
+		entry_data: values,
+		linked_agency_ids: agencies?.map(({ id }) => id),
 	};
 
 	try {
-		await createRequest(requestBody);
+		await createDataSource(requestBody);
 	} catch (error) {
 		if (error) {
 			console.error(error);
@@ -341,22 +320,6 @@ async function submit(values) {
 		requestPending.value = false;
 	}
 }
-
-watch(
-	// More janky typeahead error handling
-	() => selectedAgencies.value,
-	(selected) => {
-		// clearing when error exists and value selected
-		if (selected.length && typeaheadError.value) {
-			typeaheadError.value = undefined;
-		}
-
-		// clearing and re-applying when dirty
-		if (!selected.length && formRef.value.v$.$anyDirty) {
-			typeaheadError.value = 'Please include a location with your request';
-		}
-	},
-);
 </script>
 
 <style scoped>

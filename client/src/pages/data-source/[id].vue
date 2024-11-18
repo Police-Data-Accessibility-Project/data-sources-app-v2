@@ -53,7 +53,6 @@
 
 					<!-- Agency data -->
 					<div class="flex-[0_0_100%] flex flex-col gap-2 w-full">
-						<!-- For each agency, TODO: does UI need to be updated? -->
 						<div class="agency-row-container">
 							<div class="agency-row">
 								<div>
