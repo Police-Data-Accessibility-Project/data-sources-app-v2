@@ -137,7 +137,7 @@
 					intent="primary"
 					type="submit"
 				>
-					Submit request
+					Submit data source
 				</Button>
 				<Button
 					:disabled="requestPending"
@@ -156,6 +156,7 @@
 import { Button, FormV2, InputText, InputTextArea } from 'pdap-design-system';
 import Typeahead from '@/components/TypeaheadInput.vue';
 import AgencySelected from '@/components/TypeaheadSelected.vue';
+import { toast } from 'vue3-toastify';
 import { formatText } from './_util';
 import _debounce from 'lodash/debounce';
 import _cloneDeep from 'lodash/cloneDeep';
@@ -306,6 +307,9 @@ async function submit(values) {
 
 	try {
 		await createDataSource(requestBody);
+
+		const message = `${values[INPUT_NAMES.name]} has been submitted successfully!\nIt will be available in our data sources database after approval.`;
+		toast.success(message, { autoClose: false });
 	} catch (error) {
 		if (error) {
 			console.error(error);

@@ -84,9 +84,6 @@ main {
 .pdap-toast-container {
 	top: 120px;
 }
-.pdap-toast {
-	@apply max-w-lg;
-}
 
 :root {
 	--toastify-color-light: rgb(255 253 253);

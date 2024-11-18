@@ -166,6 +166,7 @@ import {
 } from 'pdap-design-system';
 import Typeahead from '@/components/TypeaheadInput.vue';
 import LocationSelected from '@/components/TypeaheadSelected.vue';
+import { toast } from 'vue3-toastify';
 import { useRequestStore } from '@/stores/request';
 import { formatText } from './_util';
 import _debounce from 'lodash/debounce';
@@ -356,6 +357,8 @@ async function submit(values) {
 
 	try {
 		await createRequest(requestBody);
+		const message = `Your request for ${values[INPUT_NAMES.title]} has been submitted successfully!`;
+		toast.success(message, { autoClose: false });
 	} catch (error) {
 		if (error) {
 			console.error(error);
