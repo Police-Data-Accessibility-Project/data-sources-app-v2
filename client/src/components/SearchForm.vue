@@ -139,7 +139,7 @@ const CHECKBOXES = [
 			return params.record_categories?.includes(this.label);
 		},
 		name: 'jails-and-courts',
-		label: 'Jails & courts',
+		label: 'Jails & Courts',
 	},
 ];
 
