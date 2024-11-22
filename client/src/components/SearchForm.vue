@@ -25,6 +25,12 @@
 				</span>
 				<span class="select">Select</span>
 			</template>
+			<template #not-found>
+				<span>
+					<strong>No results found.</strong> Please check your spelling and
+					search for a place in the United States.
+				</span>
+			</template>
 		</TypeaheadInput>
 	</div>
 
