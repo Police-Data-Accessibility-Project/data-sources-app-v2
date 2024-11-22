@@ -91,6 +91,7 @@ const {
 } = useGithubAuth();
 
 async function signOut() {
-	await auth.logout({ ...route });
+	auth.setRedirectTo(route);
+	await auth.logout();
 }
 </script>
