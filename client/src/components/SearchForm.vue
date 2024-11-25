@@ -226,7 +226,8 @@ function buildParams(values) {
 		state,
 		county,
 		locality,
-	}))(selectedRecord.value);
+		// If no selected record, fall back to the initial search
+	}))(selectedRecord.value ?? initiallySearchedRecord.value);
 
 	Object.keys(recordFilteredByParamsKeys).forEach((key) => {
 		if (recordFilteredByParamsKeys[key])
