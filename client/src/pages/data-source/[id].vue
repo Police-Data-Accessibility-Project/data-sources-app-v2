@@ -205,9 +205,6 @@ export const useDataSourceData = defineBasicLoader(
 
 		// Then set current route to prev before returning data
 		dataSourceStore.setPreviousDataSourceRoute(route);
-
-		console.debug({ results: results.data.data });
-
 		return results.data.data;
 	},
 );

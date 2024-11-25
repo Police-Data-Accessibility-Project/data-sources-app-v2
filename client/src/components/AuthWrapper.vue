@@ -45,7 +45,7 @@ function handleAuthRefresh() {
 		// User's tokens are all expired, log out.
 	} else if (shouldLogout) {
 		logout();
-		router.replace(route?.meta?.auth ? '/sign-in' : '/');
+		if (route?.meta?.auth) router.replace('/sign-in');
 	} else return;
 }
 </script>
