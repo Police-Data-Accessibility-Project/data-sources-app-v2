@@ -316,21 +316,13 @@
 						</RadioGroup>
 
 						<InputDatePicker
-							:id="INPUT_NAMES.start"
-							:name="INPUT_NAMES.start"
+							:id="INPUT_NAMES.start_end"
+							:name="INPUT_NAMES.start_end"
 							position="left"
+							range
 						>
 							<template #label>
-								<h4>Coverage start</h4>
-							</template>
-						</InputDatePicker>
-						<InputDatePicker
-							:id="INPUT_NAMES.end"
-							:name="INPUT_NAMES.end"
-							position="left"
-						>
-							<template #label>
-								<h4>Coverage end</h4>
+								<h4>Coverage</h4>
 							</template>
 						</InputDatePicker>
 
@@ -495,6 +487,8 @@ const INPUT_NAMES = {
 	format: 'record_formats',
 	frequency: 'update_frequency',
 	method: 'update_method',
+	/** Not an actual DataSource property - used for range date picker - parsed into `INPUT_NAMES.start` and `INPUT_NAMES.end` */
+	start_end: 'coverage_range',
 	start: 'coverage_start',
 	end: 'coverage_end',
 	schedule: 'retention_schedule',
@@ -774,11 +768,18 @@ function formatDate(date) {
 }
 
 function formatData(values) {
-	if (values[INPUT_NAMES.start]) {
-		values[INPUT_NAMES.start] = formatDate(new Date(values[INPUT_NAMES.start]));
-	}
-	if (values[INPUT_NAMES.end]) {
-		values[INPUT_NAMES.end] = formatDate(new Date(values[INPUT_NAMES.end]));
+	if (values[INPUT_NAMES.start_end]) {
+		const [start, end] = values[INPUT_NAMES.start_end];
+
+		if (start instanceof Date) {
+			values[INPUT_NAMES.start] = formatDate(start);
+		}
+
+		if (end instanceof Date) {
+			values[INPUT_NAMES.end] = formatDate(end);
+		}
+
+		delete values[INPUT_NAMES.start_end];
 	}
 
 	if (agencyNotAvailable.value) {
