@@ -122,7 +122,7 @@
 					We will attempt to find this agency and add it to our database as a
 					part of this request
 				</p>
-				<TransitionGroup v-if="agencyNotAvailable" name="list">
+				<TransitionGroup name="list">
 					<AgencySelected
 						class="md:col-span-2"
 						:content="agencyNotAvailable"
@@ -229,7 +229,7 @@
 							/>
 
 							<InputTextArea
-								v-if="!agencySuppliedChecked"
+								v-show="!agencySuppliedChecked"
 								:id="'input-' + INPUT_NAMES.supplyingEntity"
 								class="md:col-start-1 md:col-end-2"
 								:name="INPUT_NAMES.supplyingEntity"
@@ -242,7 +242,7 @@
 							</InputTextArea>
 						</div>
 
-						<div v-if="!agencySuppliedChecked" class="mt-2">
+						<div v-show="!agencySuppliedChecked" class="mt-2">
 							<h4>Agency originated</h4>
 							<p class="text-sm max-w-full lg:w-3/4">
 								Is the relevant agency also the original record keeper? This is
@@ -260,7 +260,7 @@
 							/>
 
 							<InputTextArea
-								v-if="!agencyOriginatedChecked"
+								v-show="!agencyOriginatedChecked"
 								:id="'input-' + INPUT_NAMES.originatingEntity"
 								class="md:col-start-1 md:col-end-2"
 								:name="INPUT_NAMES.originatingEntity"
@@ -324,6 +324,10 @@
 						>
 							<template #label>
 								<h4>Coverage</h4>
+								<p class="text-sm max-w-full lg:w-3/4">
+									If coverage is up to present-day, only select the beginning
+									date.
+								</p>
 							</template>
 						</InputDatePicker>
 
@@ -369,7 +373,7 @@
 							</template>
 						</InputSelect>
 						<InputText
-							v-if="isOtherPortalTypeSelected"
+							v-show="isOtherPortalTypeSelected"
 							:id="'input-' + INPUT_NAMES.portalTypeOther"
 							class="md:col-start-1 md:col-end-2"
 							:name="INPUT_NAMES.portalTypeOther"
