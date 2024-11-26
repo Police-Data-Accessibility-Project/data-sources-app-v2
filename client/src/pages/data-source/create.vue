@@ -242,13 +242,14 @@
 							</InputTextArea>
 						</div>
 
-						<div class="mt-2">
+						<div v-if="!agencySuppliedChecked" class="mt-2">
 							<h4>Agency originated</h4>
 							<p class="text-sm max-w-full lg:w-3/4">
 								Is the relevant agency also the original record keeper? This is
 								usually "yes", unless a third party collected data about a
 								police agency.
 							</p>
+
 							<InputCheckbox
 								:id="'input-' + INPUT_NAMES.agencyOriginated"
 								class="md:col-start-1 md:col-end-2"
