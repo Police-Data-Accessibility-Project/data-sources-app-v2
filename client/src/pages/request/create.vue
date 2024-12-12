@@ -171,15 +171,13 @@ import {
 import Typeahead from '@/components/TypeaheadInput.vue';
 import LocationSelected from '@/components/TypeaheadSelected.vue';
 import { toast } from 'vue3-toastify';
-import { useRequestStore } from '@/stores/request';
+import { createRequest } from '@/api/request';
 import { formatText } from './_util';
 import _debounce from 'lodash/debounce';
 import _cloneDeep from 'lodash/cloneDeep';
 import { nextTick, ref, watch } from 'vue';
 import axios from 'axios';
 import _isEqual from 'lodash/isEqual';
-
-const { createRequest } = useRequestStore();
 
 const INPUT_NAMES = {
 	// contact: 'contact',

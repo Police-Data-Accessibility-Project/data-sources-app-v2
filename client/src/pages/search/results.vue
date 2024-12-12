@@ -4,7 +4,9 @@
 	>
 		<!-- Search results -->
 		<section class="w-full h-full">
-			<div class="grid grid-cols-1 md:grid-cols-[1fr,auto]">
+			<div
+				class="grid grid-cols-1 md:grid-cols-[1fr,auto] md:grid-rows-[repeat(4,30px)] pb-4"
+			>
 				<h1 class="like-h4 mb-4">
 					Results
 					{{ searchData && 'for ' + getLocationText(searchData.params) }}
@@ -35,15 +37,6 @@
 					</p>
 				</div>
 				<div v-else class="flex flex-col md:items-end md:max-w-60">
-					<p
-						v-if="isAuthenticated()"
-						class="text-med text-neutral-500 max-w-full"
-					>
-						You are following this search. Go to
-						<RouterLink to="/profile">your profile</RouterLink> to review saved
-						searches or un-follow below.
-					</p>
-
 					<Button
 						:disabled="!isAuthenticated()"
 						class="sm:block max-h-12"
@@ -56,6 +49,14 @@
 					>
 						Un-follow
 					</Button>
+					<p
+						v-if="isAuthenticated()"
+						class="text-med text-neutral-500 max-w-full md:text-right"
+					>
+						You are following this search.<br />
+						Review saved searches in
+						<RouterLink to="/profile">your profile</RouterLink>
+					</p>
 				</div>
 
 				<!-- Nav -->
@@ -143,7 +144,13 @@ import { getMostNarrowSearchLocationWithResults } from '@/util/getLocationText';
 import getLocationText from '@/util/getLocationText';
 import _isEqual from 'lodash/isEqual';
 import { DataLoaderErrorPassThrough } from '@/util/errors';
-const search = useSearchStore();
+const searchStore = useSearchStore();
+import {
+	search,
+	getFollowedSearch,
+	followSearch,
+	deleteFollowedSearch,
+} from '@/api/search';
 
 const query = ref();
 const data = ref();
@@ -161,7 +168,7 @@ export const useSearchData = defineBasicLoader(
 				// Local caching to skip even the pinia method in case of only the hash changing while on the route.
 				_isEqual(params, query.value) && data.value
 					? data.value
-					: await search.search(route.query);
+					: await search(route.query);
 
 			// On initial fetch - get hash
 			const hash = normalizeLocaleForHash(searched, response.data);
@@ -194,7 +201,7 @@ export const useFollowedData = defineBasicLoader(
 
 		try {
 			const params = route.query;
-			const isFollowed = await search.getFollowedSearch(params);
+			const isFollowed = await getFollowedSearch(params);
 			previousRoute.value = route;
 			isPreviousRouteFollowed.value = isFollowed;
 			return isFollowed;
@@ -244,7 +251,9 @@ onMounted(() => {
 	if (window.innerWidth > 1280) isSearchShown.value = true;
 
 	if (searchData.value) {
-		search.setMostRecentSearchIds(getAllIdsSearched(searchData.value.results));
+		searchStore.setMostRecentSearchIds(
+			getAllIdsSearched(searchData.value.results),
+		);
 	}
 
 	window.addEventListener('resize', onWindowWidthSetIsSearchShown);
@@ -265,7 +274,9 @@ onUpdated(async () => {
 	}
 
 	if (searchData.value)
-		search.setMostRecentSearchIds(getAllIdsSearched(searchData.value.results));
+		searchStore.setMostRecentSearchIds(
+			getAllIdsSearched(searchData.value.results),
+		);
 });
 
 onUnmounted(() => {
@@ -276,7 +287,7 @@ onUnmounted(() => {
 // Utilities and handlers
 async function follow() {
 	try {
-		await search.followSearch(route.query);
+		await followSearch(route.query);
 		toast.success(`Search followed for ${getLocationText(route.query)}.`);
 		await reloadFollowed();
 	} catch (error) {
@@ -285,7 +296,7 @@ async function follow() {
 }
 async function unFollow() {
 	try {
-		await search.deleteFollowedSearch(route.query);
+		await deleteFollowedSearch(route.query);
 		toast.success(`Search un-followed for ${getLocationText(route.query)}.`);
 		await reloadFollowed();
 	} catch (error) {

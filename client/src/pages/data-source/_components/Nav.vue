@@ -1,10 +1,8 @@
 <template>
 	<nav
 		v-if="
-			searchIds.length &&
-			[nextIndex, previousIndex].every(
-				(id) => typeof id === 'number' && id > -1,
-			)
+			searchIds?.length &&
+			[nextIndex, previousIndex].some((id) => typeof id === 'number' && id > -1)
 		"
 		class="self-start justify-self-start w-full"
 	>
