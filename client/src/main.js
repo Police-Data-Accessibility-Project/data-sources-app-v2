@@ -1,7 +1,6 @@
 import './main.css';
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import { QueryPlugin } from '@pinia/colada';
 import piniaPersistState from 'pinia-plugin-persistedstate';
 import { DataLoaderPlugin } from 'unplugin-vue-router/data-loaders';
 import Vue3Toastify from 'vue3-toastify';
@@ -20,7 +19,6 @@ const app = createApp(App);
 const pinia = createPinia();
 pinia.use(piniaPersistState);
 app.use(pinia);
-app.use(QueryPlugin, {});
 app.use(DataLoaderPlugin, { router, errors: [DataLoaderErrorPassThrough] });
 app.use(router);
 app.use(Vue3Toastify, {

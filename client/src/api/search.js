@@ -2,6 +2,8 @@ import axios from 'axios';
 import { ENDPOINTS } from './constants';
 import { useAuthStore } from '@/stores/auth';
 import _isEqual from 'lodash/isEqual';
+import { useSearchStore } from '@/stores/search';
+import { isCachedResponseValid } from '@/api/util';
 
 const SEARCH_BASE = `${import.meta.env.VITE_VUE_API_BASE_URL}/search`;
 const HEADERS = {
@@ -13,10 +15,22 @@ const HEADERS_BASIC = {
 };
 
 export async function search(params) {
-	return await axios.get(`${SEARCH_BASE}/${ENDPOINTS.SEARCH.RESULTS}`, {
+	const searchStore = useSearchStore();
+	const cached = searchStore.getSearchFromCache(params);
+
+	if (cached && isCachedResponseValid(cached?.timestamp ?? 0, 1000 * 60 * 5)) {
+		console.debug('cached data returning');
+		return cached.data;
+	}
+
+	const response = axios.get(`${SEARCH_BASE}/${ENDPOINTS.SEARCH.RESULTS}`, {
 		params,
 		headers: HEADERS_BASIC,
 	});
+
+	searchStore.setSearchToCache(params, response);
+
+	return response;
 }
 
 export async function followSearch(params) {
