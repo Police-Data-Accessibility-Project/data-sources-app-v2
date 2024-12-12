@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth';
+import { useDataSourceStore } from '@/stores/data-source';
+import { isCachedResponseValid } from '@/api/util';
 
 const DATA_SOURCES_BASE = `${import.meta.env.VITE_VUE_API_BASE_URL}/data-sources`;
 const HEADERS_BASE = {
@@ -22,7 +24,26 @@ export async function createDataSource(data) {
 }
 
 export async function getDataSource(id) {
-	return await axios.get(`${DATA_SOURCES_BASE}/${id}`, {
+	const dataSourceStore = useDataSourceStore();
+
+	const cached = dataSourceStore.getDataSourceFromCache(id);
+
+	if (
+		cached &&
+		isCachedResponseValid({
+			cacheTime: cached.timestamp,
+			// Cache for 3 minutes
+			intervalBeforeInvalidation: 1000 * 60 * 3,
+		})
+	) {
+		return cached.data;
+	}
+
+	const response = await axios.get(`${DATA_SOURCES_BASE}/${id}`, {
 		headers: HEADERS_BASIC,
 	});
+
+	dataSourceStore.setDataSourceToCache(id, response);
+
+	return response;
 }

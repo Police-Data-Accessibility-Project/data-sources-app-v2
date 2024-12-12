@@ -16,19 +16,28 @@ const HEADERS_BASIC = {
 
 export async function search(params) {
 	const searchStore = useSearchStore();
-	const cached = searchStore.getSearchFromCache(params);
+	const cached = searchStore.getSearchFromCache(JSON.stringify(params));
 
-	if (cached && isCachedResponseValid(cached?.timestamp ?? 0, 1000 * 60 * 5)) {
-		console.debug('cached data returning');
+	if (
+		cached &&
+		isCachedResponseValid({
+			cacheTime: cached.timestamp,
+			// Cache for 5 minutes
+			intervalBeforeInvalidation: 1000 * 60 * 5,
+		})
+	) {
 		return cached.data;
 	}
 
-	const response = axios.get(`${SEARCH_BASE}/${ENDPOINTS.SEARCH.RESULTS}`, {
-		params,
-		headers: HEADERS_BASIC,
-	});
+	const response = await axios.get(
+		`${SEARCH_BASE}/${ENDPOINTS.SEARCH.RESULTS}`,
+		{
+			params,
+			headers: HEADERS_BASIC,
+		},
+	);
 
-	searchStore.setSearchToCache(params, response);
+	searchStore.setSearchToCache(JSON.stringify(params), response);
 
 	return response;
 }

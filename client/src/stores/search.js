@@ -27,12 +27,12 @@ export const useSearchStore = defineStore('search', {
 			});
 		},
 
-		setSearchToCache(key, data) {
+		setSearchToCache(key, data, timestamp = new Date().getTime()) {
 			this.$patch((state) => {
 				// Use object notation for setting cache data
 				state.cache[key] = {
 					data,
-					timestamp: new Date().getTime(),
+					timestamp,
 				};
 			});
 		},
