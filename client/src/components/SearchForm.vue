@@ -54,7 +54,12 @@
 			</template>
 		</InputCheckbox>
 
-		<Button :disabled="isButtonDisabled" intent="primary" type="submit">
+		<Button
+			:disabled="isButtonDisabled"
+			intent="primary"
+			type="submit"
+			class="mt-4"
+		>
 			{{ buttonCopy ?? 'Search' }}
 		</Button>
 	</FormV2>

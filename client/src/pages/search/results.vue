@@ -4,42 +4,17 @@
 	>
 		<!-- Search results -->
 		<section class="w-full h-full">
-			<div class="flex flex-col md:flex-row md:justify-between mb-4">
-				<div>
-					<h1 class="like-h4 mb-4">
-						Results
-						{{ searchData && 'for ' + getLocationText(searchData.params) }}
-					</h1>
-					<nav
-						v-if="!error"
-						class="flex gap-2 mb-4 [&>*]:text-[.72rem] [&>*]:xs:text-med [&>*]:sm:text-lg sm:gap-4"
-					>
-						<span class="text-neutral-500">Jump to:</span>
-						<RouterLink
-							v-for="locale in ALL_LOCATION_TYPES"
-							:key="`${locale} anchor`"
-							class="capitalize"
-							:class="{
-								'text-neutral-500 pointer-events-none cursor-auto':
-									!searchData?.results?.[locale]?.count,
-							}"
-							:to="{ ...route, hash: `#${locale}` }"
-							replace
-							@click="
-								() =>
-									// If route hash already includes locale, handle scroll manually
-									route.hash.includes(locale) &&
-									searchResultsRef.handleScrollTo()
-							"
-						>
-							{{ getAnchorLinkText(locale) }}
-							<span v-if="searchData?.results?.[locale]?.count">
-								({{ searchData.results[locale].count }})
-							</span>
-						</RouterLink>
-					</nav>
-				</div>
-				<div v-if="!isFollowed" class="flex flex-col md:items-end">
+			<div class="grid grid-cols-1 md:grid-cols-[1fr,auto]">
+				<h1 class="like-h4 mb-4">
+					Results
+					{{ searchData && 'for ' + getLocationText(searchData.params) }}
+				</h1>
+
+				<!-- Follow -->
+				<div
+					v-if="!isFollowed"
+					class="flex flex-col md:items-end md:row-start-1 md:row-span-2 md:col-start-2 md:col-span-1"
+				>
 					<Button
 						:disabled="!isAuthenticated()"
 						class="sm:block max-h-12"
@@ -82,6 +57,35 @@
 						Un-follow
 					</Button>
 				</div>
+
+				<!-- Nav -->
+				<nav
+					v-if="!error"
+					class="flex gap-2 mb-4 [&>*]:text-[.72rem] [&>*]:xs:text-med [&>*]:sm:text-lg sm:gap-4 md:col-start-1 md:col-span-1 justify-baseline mt-2"
+				>
+					<span class="text-neutral-500">Jump to:</span>
+					<RouterLink
+						v-for="locale in ALL_LOCATION_TYPES"
+						:key="`${locale} anchor`"
+						class="capitalize"
+						:class="{
+							'text-neutral-500 pointer-events-none cursor-auto':
+								!searchData?.results?.[locale]?.count,
+						}"
+						:to="{ ...route, hash: `#${locale}` }"
+						replace
+						@click="
+							() =>
+								// If route hash already includes locale, handle scroll manually
+								route.hash.includes(locale) && searchResultsRef.handleScrollTo()
+						"
+					>
+						{{ getAnchorLinkText(locale) }}
+						<span v-if="searchData?.results?.[locale]?.count">
+							({{ searchData.results[locale].count }})
+						</span>
+					</RouterLink>
+				</nav>
 			</div>
 			<SearchResults
 				v-if="!error && searchData?.results"
