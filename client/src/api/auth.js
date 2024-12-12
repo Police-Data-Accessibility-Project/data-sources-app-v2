@@ -94,11 +94,11 @@ export async function refreshTokens() {
 	try {
 		const response = await axios.post(
 			`${AUTH_BASE}/${ENDPOINTS.AUTH.REFRESH_SESSION}`,
-			{ refresh_token: this.$state.tokens.refreshToken.value },
+			{ refresh_token: auth.$state.tokens.refreshToken.value },
 			{
 				headers: {
 					...HEADERS,
-					authorization: `Bearer ${this.$state.tokens.accessToken.value}`,
+					authorization: `Bearer ${auth.$state.tokens.accessToken.value}`,
 				},
 			},
 		);
