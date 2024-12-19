@@ -1,22 +1,24 @@
 from dataclasses import dataclass
 from functools import partialmethod
+from typing import Optional
 
-from sqlalchemy.orm import defaultload
+from pydantic import BaseModel
+from sqlalchemy.orm import defaultload, joinedload
 from sqlalchemy.sql.base import ExecutableOption
 
 from database_client.models import convert_to_column_reference
 from middleware.enums import Relations
 
 
-@dataclass
-class SubqueryParameters:
+class SubqueryParameters(BaseModel):
     """
     Contains parameters for executing a subquery
     """
 
     relation_name: str
     linking_column: str
-    columns: list[str] = None
+    columns: Optional[list[str]] = None
+    alias_mappings: Optional[dict[str, str]] = None
 
     def set_columns(self, columns: list[str]) -> None:
         self.columns = columns
@@ -34,7 +36,7 @@ class SubqueryParameters:
             columns=[self.linking_column], relation=primary_relation
         )
 
-        return defaultload(*linking_column_reference).load_only(*column_references)
+        return joinedload(*linking_column_reference).load_only(*column_references)
 
 
 class SubqueryParameterManager:
@@ -54,6 +56,24 @@ class SubqueryParameterManager:
         get_subquery_params,
         relation=Relations.AGENCIES_EXPANDED,
         linking_column="agencies",
+        columns=[
+            "id",
+            "name",
+            "submitted_name",
+            "state_name",
+            "locality_name",
+            "state_iso",
+            "county_name",
+            "agency_type",
+            "jurisdiction_type",
+            "homepage_url",
+        ],
+    )
+
+    data_requests = partialmethod(
+        get_subquery_params,
+        relation=Relations.DATA_REQUESTS_EXPANDED,
+        linking_column="data_requests",
     )
 
     @staticmethod
@@ -69,5 +89,13 @@ class SubqueryParameterManager:
         return SubqueryParameterManager.get_subquery_params(
             relation=Relations.LOCATIONS_EXPANDED,
             linking_column="locations",
-            columns=["type", "state_iso", "county_fips", "locality_name"],
+            columns=[
+                "type",
+                "state_name",
+                "state_iso",
+                "county_fips",
+                "county_name",
+                "locality_name",
+                "display_name",
+            ],
         )

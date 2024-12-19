@@ -21,12 +21,13 @@ and the native format is a list, which the request-friendly format is converted 
 """
 
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Optional, Type
 
 from flask_restx.reqparse import RequestParser
 
 from flask_restx import fields as restx_fields, Namespace, Model
-from marshmallow import fields as marshmallow_fields
+from marshmallow import fields as marshmallow_fields, missing
 from marshmallow.validate import OneOf
 
 from middleware.schema_and_dto_logic.mappings import (
@@ -45,13 +46,22 @@ from middleware.schema_and_dto_logic.util import _get_required_argument
 from resources.resource_helpers import create_variable_columns_model
 from utilities.enums import SourceMappingEnum
 
+PARSER_FIELDS = [
+    SourceMappingEnum.QUERY_ARGS,
+    SourceMappingEnum.PATH,
+    SourceMappingEnum.FILE,
+]
+
+PARSER_SOURCE_LOCATION_MAP = {
+    SourceMappingEnum.QUERY_ARGS: "query",
+    SourceMappingEnum.PATH: "path",
+    SourceMappingEnum.FILE: "file",
+}
+
 
 # region Supporting Functions
 def get_location(source: SourceMappingEnum) -> str:
-    if source == SourceMappingEnum.PATH:
-        return "path"
-    if source == SourceMappingEnum.QUERY_ARGS:
-        return "query"
+    return PARSER_SOURCE_LOCATION_MAP[source]
 
 
 def add_description_info_from_validators(
@@ -79,6 +89,55 @@ def add_description_info_from_enum(
     enum_class = field_value.enum
     description += f" Must be one of: {[x.value for x in enum_class]}."
     return description
+
+
+class DescriptionBuilder:
+    """
+    Appends information to description based on data
+    in field
+    """
+
+    def __init__(self, field: marshmallow_fields, description: str):
+        self.field = field
+        self.description = description
+        self.metadata = field.metadata
+
+    def __str__(self):
+        return self.description
+
+    def build_description(self):
+        self.enum_case()
+        self.validator_case()
+        self.list_query_case()
+        self.default_case()
+
+    def enum_case(self):
+        if isinstance(self.field, marshmallow_fields.Enum):
+            self.description = add_description_info_from_enum(
+                field_value=self.field, description=self.description
+            )
+
+    def validator_case(self):
+        for validator in self.field.validators:
+            if isinstance(validator, OneOf):
+                self.description = add_description_info_from_validators(
+                    field=self.field, description=self.description
+                )
+
+    def list_query_case(self):
+        if not isinstance(self.field, marshmallow_fields.List):
+            return
+        if not self.metadata.get("source") == SourceMappingEnum.QUERY_ARGS:
+            return
+        self.description += " \n(Comma-delimited list)"
+
+    def default_case(self):
+        default = self.field.load_default
+        if default != missing:
+            # If Enum, get value
+            if isinstance(default, Enum):
+                default = default.value
+            self.description += f" \nDefault: {default}"
 
 
 class FieldInfo:
@@ -116,9 +175,9 @@ class FieldInfo:
         description = _get_required_argument(
             "description", metadata, schema_class, field_name
         )
-        if isinstance(field_value, marshmallow_fields.Enum):
-            description = add_description_info_from_enum(field_value, description)
-        return add_description_info_from_validators(field_value, description)
+        desc_builder = DescriptionBuilder(field=field_value, description=description)
+        desc_builder.build_description()
+        return str(desc_builder)
 
     def _map_field_type(self, field_type: type[MarshmallowFields]) -> Type[RestxFields]:
         try:
@@ -290,7 +349,7 @@ class MarshmallowFieldSorter:
             self._sort_field(fi)
 
     def _sort_field(self, fi: FieldInfo):
-        if fi.source in (SourceMappingEnum.QUERY_ARGS, SourceMappingEnum.PATH):
+        if fi.source in PARSER_FIELDS:
             self.parser_fields.append(fi)
         elif fi.source == SourceMappingEnum.JSON:
             self.model_fields.append(fi)
@@ -330,7 +389,7 @@ def get_restx_param_documentation(
     namespace: Namespace,
     schema: SchemaTypes,
     model_name: Optional[str] = None,
-):
+) -> FlaskRestxDocInfo:
     """
     Takes a Marshmallow schema class with custom arguments and
     returns a Flask-RESTX model and Request Parser for Restx documentation, correlating to the schema

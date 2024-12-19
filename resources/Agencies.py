@@ -1,10 +1,14 @@
 from flask import Response
 
-from middleware.access_logic import AccessInfo, GET_AUTH_INFO, WRITE_ONLY_AUTH_INFO
+from config import limiter
+from middleware.access_logic import (
+    AccessInfoPrimary,
+    GET_AUTH_INFO,
+    WRITE_ONLY_AUTH_INFO,
+)
 from middleware.column_permission_logic import create_column_permissions_string_table
 from middleware.decorators import (
     endpoint_info,
-    endpoint_info_2,
 )
 from middleware.enums import Relations
 from middleware.primary_resource_logic.agencies import (
@@ -38,7 +42,7 @@ agencies_column_permissions = create_column_permissions_string_table(
 class AgenciesByPage(PsycopgResource):
     """Represents a resource for fetching approved agency data from the database."""
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_agencies,
         auth_info=GET_AUTH_INFO,
         schema_config=SchemaConfigs.AGENCIES_GET_MANY,
@@ -47,7 +51,7 @@ class AgenciesByPage(PsycopgResource):
         ),
         description="Get a paginated list of approved agencies",
     )
-    def get(self, access_info: AccessInfo) -> Response:
+    def get(self, access_info: AccessInfoPrimary) -> Response:
         """
         Retrieves a paginated list of approved agencies from the database.
 
@@ -60,7 +64,7 @@ class AgenciesByPage(PsycopgResource):
             access_info=access_info,
         )
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_agencies,
         auth_info=WRITE_ONLY_AUTH_INFO,
         schema_config=SchemaConfigs.AGENCIES_POST,
@@ -68,18 +72,17 @@ class AgenciesByPage(PsycopgResource):
             success_message="Returns the id of the newly created agency."
         ),
     )
-    def post(self, access_info: AccessInfo):
+    def post(self, access_info: AccessInfoPrimary):
         return self.run_endpoint(
             wrapper_function=create_agency,
             schema_populate_parameters=SchemaConfigs.AGENCIES_POST.value.get_schema_populate_parameters(),
-            access_info=access_info,
         )
 
 
 @namespace_agencies.route("/<resource_id>")
 class AgenciesById(PsycopgResource):
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_agencies,
         auth_info=GET_AUTH_INFO,
         schema_config=SchemaConfigs.AGENCIES_BY_ID_GET,
@@ -92,14 +95,15 @@ class AgenciesById(PsycopgResource):
             column_permissions_str_table=agencies_column_permissions,
         ),
     )
-    def get(self, resource_id: str, access_info: AccessInfo) -> Response:
+    @limiter.limit("50/minute;250/hour")
+    def get(self, resource_id: str, access_info: AccessInfoPrimary) -> Response:
         return self.run_endpoint(
             wrapper_function=get_agency_by_id,
             schema_populate_parameters=SchemaConfigs.AGENCIES_BY_ID_GET.value.get_schema_populate_parameters(),
             access_info=access_info,
         )
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_agencies,
         auth_info=WRITE_ONLY_AUTH_INFO,
         schema_config=SchemaConfigs.AGENCIES_BY_ID_PUT,
@@ -108,7 +112,7 @@ class AgenciesById(PsycopgResource):
         ),
         description="Updates an agency",
     )
-    def put(self, resource_id: str, access_info: AccessInfo) -> Response:
+    def put(self, resource_id: str, access_info: AccessInfoPrimary) -> Response:
         return self.run_endpoint(
             update_agency,
             access_info=access_info,
@@ -118,10 +122,10 @@ class AgenciesById(PsycopgResource):
     @endpoint_info(
         namespace=namespace_agencies,
         auth_info=WRITE_ONLY_AUTH_INFO,
-        description="Deletes an agency",
-        responses=create_response_dictionary("Agency successfully deleted."),
+        schema_config=SchemaConfigs.AGENCIES_BY_ID_DELETE,
+        response_info=ResponseInfo(success_message="Agency successfully deleted."),
     )
-    def delete(self, resource_id: str, access_info: AccessInfo) -> Response:
+    def delete(self, resource_id: str, access_info: AccessInfoPrimary) -> Response:
         return self.run_endpoint(
             delete_agency, agency_id=resource_id, access_info=access_info
         )

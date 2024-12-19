@@ -5,7 +5,7 @@
 		<TypeaheadInput
 			:id="TYPEAHEAD_ID"
 			ref="typeaheadRef"
-			:format-item-for-display="formatText"
+			:format-item-for-display="getFullLocationText"
 			:items="items"
 			:placeholder="placeholder ?? 'Enter a place'"
 			@select-item="onSelectRecord"
@@ -19,11 +19,17 @@
 			<!-- Item to render passed as scoped slot -->
 			<template #item="item">
 				<!-- eslint-disable-next-line vue/no-v-html This data is coming from our API, so we can trust it-->
-				<span v-html="typeaheadRef?.boldMatchText(formatText(item))" />
+				<span v-html="typeaheadRef?.boldMatchText(getFullLocationText(item))" />
 				<span class="locale-type">
 					{{ item.type }}
 				</span>
 				<span class="select">Select</span>
+			</template>
+			<template #not-found>
+				<span>
+					<strong>No results found.</strong> Please check your spelling and
+					search for a place in the United States.
+				</span>
 			</template>
 		</TypeaheadInput>
 	</div>
@@ -48,7 +54,12 @@
 			</template>
 		</InputCheckbox>
 
-		<Button :disabled="!selectedRecord" intent="primary" type="submit">
+		<Button
+			:disabled="isButtonDisabled"
+			intent="primary"
+			type="submit"
+			class="mt-4"
+		>
 			{{ buttonCopy ?? 'Search' }}
 		</Button>
 	</FormV2>
@@ -56,7 +67,7 @@
 		<p class="text-lg mt-8 mb-4">
 			If you have a question to answer, we can help
 		</p>
-		<RouterLink class="pdap-button-primary" to="/request">
+		<RouterLink class="pdap-button-primary" to="/data-request/create">
 			Make a Request
 		</RouterLink>
 	</div>
@@ -70,16 +81,14 @@ import {
 	RecordTypeIcon,
 } from 'pdap-design-system';
 import TypeaheadInput from '@/components/TypeaheadInput.vue';
-import axios from 'axios';
-import { ref } from 'vue';
-import statesToAbbreviations from '@/util/statesToAbbreviations';
+import { computed, onMounted, ref } from 'vue';
+import { getFullLocationText } from '@/util/locationFormatters';
 import _debounce from 'lodash/debounce';
-import { useRouter, RouterLink } from 'vue-router';
-import { useSearchStore } from '@/stores/search';
+import _isEqual from 'lodash/isEqual';
+import { useRouter, RouterLink, useRoute } from 'vue-router';
+import { getTypeaheadLocations } from '@/api/typeahead';
 
 const router = useRouter();
-const { sessionLocationTypeaheadCache, upsertSessionLocationTypeaheadCache } =
-	useSearchStore();
 
 const { buttonCopy } = defineProps({
 	buttonCopy: String,
@@ -87,45 +96,61 @@ const { buttonCopy } = defineProps({
 });
 
 const emit = defineEmits(['searched']);
+const { query: params } = useRoute();
 
 /* constants */
 const TYPEAHEAD_ID = 'pdap-search-typeahead';
 const CHECKBOXES = [
 	{
 		id: 'all-data-types',
-		defaultChecked: true,
+		get defaultChecked() {
+			return (
+				params.record_categories?.includes(this.label) ||
+				!params.record_categories?.length
+			);
+		},
 		name: 'all-data-types',
 		label: 'All data types',
 	},
 	{
 		id: 'interactions',
-		defaultChecked: false,
+		get defaultChecked() {
+			return params.record_categories?.includes(this.label);
+		},
 		name: 'police-and-public-interactions',
 		label: 'Police & public interactions',
 	},
 	{
 		id: 'info-officers',
-		defaultChecked: false,
+		get defaultChecked() {
+			return params.record_categories?.includes(this.label);
+		},
 		name: 'info-about-officers',
 		label: 'Info about officers',
 	},
 	{
 		id: 'info-agencies',
-		defaultChecked: false,
+		get defaultChecked() {
+			return params.record_categories?.includes(this.label);
+		},
 		name: 'info-about-agencies',
 		label: 'Info about agencies',
 	},
 	{
 		id: 'agency-published-resources',
-		defaultChecked: false,
+		get defaultChecked() {
+			return params.record_categories?.includes(this.label);
+		},
 		name: 'agency-published-resources',
 		label: 'Agency-published resources',
 	},
 	{
 		id: 'jails-and-courts',
-		defaultChecked: false,
+		get defaultChecked() {
+			return params.record_categories?.includes(this.label);
+		},
 		name: 'jails-and-courts',
-		label: 'Jails and courts specific',
+		label: 'Jails & Courts',
 	},
 ];
 
@@ -133,6 +158,59 @@ const items = ref([]);
 const selectedRecord = ref();
 const formRef = ref();
 const typeaheadRef = ref();
+const initiallySearchedRecord = ref();
+const hasUpdatedCategories = ref(false);
+
+const isButtonDisabled = computed(() => {
+	if (!selectedRecord.value && !initiallySearchedRecord.value) return true;
+
+	const selectedRecordEqualsInitiallySearched = _isEqual(
+		selectedRecord.value,
+		initiallySearchedRecord.value,
+	);
+
+	// If there is a selected record, the button should be enabled
+	if (selectedRecord.value && !selectedRecordEqualsInitiallySearched)
+		return false;
+
+	if (
+		selectedRecordEqualsInitiallySearched &&
+		initiallySearchedRecord.value &&
+		!hasUpdatedCategories.value
+	)
+		return true;
+
+	return false;
+});
+
+onMounted(() => {
+	// Set up selected state based on params
+	if (params.state) {
+		const record = (({
+			state_name,
+			county_name,
+			locality_name,
+			location_id,
+		}) => ({
+			state: state_name,
+			county: county_name,
+			locality: locality_name,
+			location_id,
+		}))(params);
+
+		selectedRecord.value = record;
+		initiallySearchedRecord.value = record;
+	}
+
+	// Sync values state with default checked state.
+	const defaultChecked = {};
+	CHECKBOXES.forEach(({ name, label }) => {
+		if (params.record_categories?.includes(label)) {
+			defaultChecked[name] = true;
+		}
+	});
+	formRef.value.setValues(defaultChecked);
+});
 
 function submit(values) {
 	const params = new URLSearchParams(buildParams(values));
@@ -141,27 +219,22 @@ function submit(values) {
 	emit('searched');
 }
 
-function formatText(item) {
-	switch (item.type) {
-		case 'Locality':
-			return `${item.display_name} ${item.county} ${statesToAbbreviations.get(item.state)}`;
-		case 'County':
-			return `${item.display_name} ${statesToAbbreviations.get(item.state)}`;
-		case 'State':
-		default:
-			return item.display_name;
-	}
-}
-
 function buildParams(values) {
 	const obj = {};
 
 	/* Handle record from typeahead input */
-	const recordFilteredByParamsKeys = (({ state, county, locality }) => ({
-		state,
-		county,
-		locality,
-	}))(selectedRecord.value);
+	const recordFilteredByParamsKeys = (({
+		state_name,
+		county_name,
+		locality_name,
+		location_id,
+	}) => ({
+		state: state_name,
+		county: county_name,
+		locality: locality_name,
+		location_id,
+		// If no selected record, fall back to the initial search
+	}))(selectedRecord.value ?? initiallySearchedRecord.value);
 
 	Object.keys(recordFilteredByParamsKeys).forEach((key) => {
 		if (recordFilteredByParamsKeys[key])
@@ -191,8 +264,8 @@ function onChange(values, event) {
 	if (event.target.name === 'all-data-types') {
 		if (event.target.checked) {
 			const update = {};
-			Object.entries(values).forEach(([key, val]) => {
-				if (key !== 'all-data-types' && val) {
+			CHECKBOXES.map(({ name }) => name).forEach((key) => {
+				if (key !== 'all-data-types') {
 					update[key] = false;
 					const checkbox = document.querySelector(`input[name=${key}]`);
 					checkbox.checked = false;
@@ -209,6 +282,8 @@ function onChange(values, event) {
 			allTypesCheckbox.checked = false;
 		}
 	}
+
+	if (event.target.type === 'checkbox') hasUpdatedCategories.value = true;
 }
 
 function onSelectRecord(item) {
@@ -216,33 +291,11 @@ function onSelectRecord(item) {
 	items.value = [];
 }
 
-// TODO: This functionality is duplicated everywhere we're using typeahead.
-// Tried to move this to a store, but it slow and glitchy when not used directly in the component.
 const fetchTypeaheadResults = _debounce(
 	async (e) => {
 		try {
 			if (e.target.value.length > 1) {
-				const suggestions =
-					// Cache has search results return that
-					sessionLocationTypeaheadCache?.[e.target.value.toLowerCase()] ??
-					// Otherwise fetch
-					(
-						await axios.get(
-							`${import.meta.env.VITE_VUE_API_BASE_URL}/typeahead/locations`,
-							{
-								headers: {
-									Authorization: import.meta.env.VITE_ADMIN_API_KEY,
-								},
-								params: {
-									query: e.target.value,
-								},
-							},
-						)
-					).data.suggestions;
-
-				upsertSessionLocationTypeaheadCache({
-					[e.target.value.toLowerCase()]: suggestions,
-				});
+				const suggestions = await getTypeaheadLocations(e);
 
 				items.value = suggestions.length ? suggestions : undefined;
 			} else {

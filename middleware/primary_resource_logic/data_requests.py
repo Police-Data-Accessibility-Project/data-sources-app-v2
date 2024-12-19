@@ -1,15 +1,17 @@
-from dataclasses import dataclass, asdict
 from http import HTTPStatus
 from typing import Optional
 
-from flask import make_response, Response
-from marshmallow import fields
+from flask import Response
 
 from database_client.db_client_dataclasses import WhereMapping, OrderByParameters
 from database_client.database_client import DatabaseClient
-from database_client.enums import ColumnPermissionEnum, RelationRoleEnum, RequestUrgency
+from database_client.enums import (
+    ColumnPermissionEnum,
+    RelationRoleEnum,
+    RequestStatus,
+)
 from database_client.subquery_logic import SubqueryParameterManager, SubqueryParameters
-from middleware.access_logic import AccessInfo
+from middleware.access_logic import AccessInfoPrimary
 from middleware.column_permission_logic import (
     get_permitted_columns,
     RelationRoleParameters,
@@ -17,7 +19,6 @@ from middleware.column_permission_logic import (
 from middleware.custom_dataclasses import (
     DeferredFunction,
 )
-from middleware.dynamic_request_logic.common_functions import check_for_id
 from middleware.dynamic_request_logic.delete_logic import delete_entry
 from middleware.dynamic_request_logic.get_by_id_logic import get_by_id
 from middleware.dynamic_request_logic.get_many_logic import get_many
@@ -25,37 +26,34 @@ from middleware.dynamic_request_logic.get_related_resource_logic import (
     get_related_resource,
     GetRelatedResourcesParameters,
 )
-from middleware.dynamic_request_logic.post_logic import post_entry, PostLogic
+from middleware.dynamic_request_logic.post_logic import PostLogic
 from middleware.dynamic_request_logic.put_logic import put_entry
 from middleware.dynamic_request_logic.supporting_classes import (
     MiddlewareParameters,
     IDInfo,
-    PutPostBase,
 )
 from middleware.flask_response_manager import FlaskResponseManager
-from middleware.location_logic import get_location_id, InvalidLocationError
+from middleware.location_logic import InvalidLocationError
 from middleware.schema_and_dto_logic.common_schemas_and_dtos import (
-    EntryCreateUpdateRequestDTO,
     GetByIDBaseDTO,
-    GetByIDBaseSchema,
     GetManyBaseDTO,
-    LocationInfoDTO,
 )
 from middleware.enums import AccessTypeEnum, PermissionsEnum, Relations
 
 from middleware.common_response_formatting import (
-    multiple_results_response,
     message_response,
     created_id_response,
 )
 from middleware.schema_and_dto_logic.primary_resource_dtos.data_requests_dtos import (
-    DataRequestLocationInfoPostDTO,
     GetManyDataRequestsRequestsDTO,
     DataRequestsPutDTO,
     DataRequestsPutOuterDTO,
+    RelatedSourceByIDDTO,
+    RelatedLocationsByIDDTO,
+    DataRequestsPostDTO,
+    DataRequestLocationInfoPostDTO,
 )
 from middleware.util import dataclass_to_filtered_dict
-from utilities.enums import SourceMappingEnum
 
 RELATION = Relations.DATA_REQUESTS.value
 RELATED_SOURCES_RELATION = Relations.RELATED_SOURCES.value
@@ -68,55 +66,8 @@ def get_data_requests_subquery_params() -> list[SubqueryParameters]:
     ]
 
 
-class RelatedSourceByIDSchema(GetByIDBaseSchema):
-    data_source_id = fields.Str(
-        required=True,
-        metadata={
-            "description": "The ID of the data source",
-            "source": SourceMappingEnum.PATH,
-        },
-    )
-
-
-@dataclass
-class RelatedSourceByIDDTO(GetByIDBaseDTO):
-    data_source_id: int
-
-    def get_where_mapping(self):
-        return {
-            "data_source_id": int(self.data_source_id),
-            "request_id": int(self.resource_id),
-        }
-
-
-@dataclass
-class RelatedLocationsByIDDTO(GetByIDBaseDTO):
-    location_id: int
-
-    def get_where_mapping(self):
-        return {
-            "location_id": int(self.location_id),
-            "data_request_id": int(self.resource_id),
-        }
-
-
-@dataclass
-class RequestInfoPostDTO:
-    title: str
-    submission_notes: str
-    request_urgency: RequestUrgency
-    coverage_range: Optional[str] = None
-    data_requirements: Optional[str] = None
-
-
-@dataclass
-class DataRequestsPostDTO:
-    request_info: RequestInfoPostDTO
-    location_infos: Optional[list[DataRequestLocationInfoPostDTO]] = None
-
-
 def get_location_id_for_data_requests(
-    db_client: DatabaseClient, location_info: dict
+    db_client: DatabaseClient, location_info: DataRequestLocationInfoPostDTO
 ) -> int:
     """
     Get the location id for the data request
@@ -126,10 +77,10 @@ def get_location_id_for_data_requests(
     """
     # Rename keys to match where mappings
     revised_location_info = {
-        "type": location_info["type"],
-        "state_name": location_info["state"],
-        "county_name": location_info["county"],
-        "locality_name": location_info["locality"],
+        "type": location_info.type,
+        "state_name": location_info.state_name,
+        "county_name": location_info.county_name,
+        "locality_name": location_info.locality_name,
     }
 
     location_id = db_client.get_location_id(
@@ -141,7 +92,9 @@ def get_location_id_for_data_requests(
 
 
 def get_data_requests_relation_role(
-    db_client: DatabaseClient, data_request_id: Optional[int], access_info: AccessInfo
+    db_client: DatabaseClient,
+    data_request_id: Optional[int],
+    access_info: AccessInfoPrimary,
 ) -> RelationRoleEnum:
     """
     Determine the relation role for information on a data request
@@ -158,7 +111,7 @@ def get_data_requests_relation_role(
         return RelationRoleEnum.STANDARD
 
     # Check ownership
-    user_id = db_client.get_user_id(access_info.user_email)
+    user_id = access_info.get_user_id()
     if db_client.user_is_creator_of_data_request(
         user_id=user_id, data_request_id=data_request_id
     ):
@@ -166,15 +119,8 @@ def get_data_requests_relation_role(
     return RelationRoleEnum.STANDARD
 
 
-def add_creator_user_id(
-    db_client: DatabaseClient, user_email: str, dto: EntryCreateUpdateRequestDTO
-):
-    user_id = db_client.get_user_id(user_email)
-    dto.entry_data.update({"creator_user_id": user_id})
-
-
 def create_data_request_wrapper(
-    db_client: DatabaseClient, dto: DataRequestsPostDTO, access_info: AccessInfo
+    db_client: DatabaseClient, dto: DataRequestsPostDTO, access_info: AccessInfoPrimary
 ) -> Response:
     """
     Create a data request
@@ -186,8 +132,8 @@ def create_data_request_wrapper(
     # Check that location ids are valid, and get location ids for linking
     location_ids = _get_location_ids(db_client, dto)
 
-    column_value_mappings_raw = asdict(dto.request_info)
-    user_id = db_client.get_user_id(access_info.user_email)
+    column_value_mappings_raw = dict(dto.request_info)
+    user_id = access_info.get_user_id()
     column_value_mappings_raw["creator_user_id"] = user_id
 
     # Insert the data request, get data request id
@@ -227,7 +173,7 @@ def _get_location_ids(db_client, dto: DataRequestsPostDTO):
 def get_data_requests_wrapper(
     db_client: DatabaseClient,
     dto: GetManyDataRequestsRequestsDTO,
-    access_info: AccessInfo,
+    access_info: AccessInfoPrimary,
 ) -> Response:
     """
     Get data requests
@@ -236,14 +182,18 @@ def get_data_requests_wrapper(
     :param access_info:
     :return:
     """
-    db_client_additional_args = {"build_metadata": True}
-    if dto.request_status is not None:
+    db_client_additional_args = {
+        "build_metadata": True,
+        "order_by": OrderByParameters.construct_from_args(
+            sort_by=dto.sort_by, sort_order=dto.sort_order
+        ),
+    }
+    if dto.request_statuses is not None:
         db_client_additional_args["where_mappings"] = {
-            "request_status": dto.request_status.value
+            "request_status": [rs.value for rs in dto.request_statuses]
         }
     return get_many(
         middleware_parameters=MiddlewareParameters(
-            db_client=db_client,
             access_info=access_info,
             entry_name="data requests",
             relation=Relations.DATA_REQUESTS_EXPANDED.value,
@@ -279,8 +229,8 @@ def get_data_requests_with_permitted_columns(
     return data_requests
 
 
-def allowed_to_delete_request(access_info, data_request_id, db_client):
-    user_id = db_client.get_user_id(email=access_info.user_email)
+def is_creator_or_admin(access_info, data_request_id, db_client):
+    user_id = access_info.get_user_id()
     return (
         db_client.user_is_creator_of_data_request(
             user_id=user_id, data_request_id=data_request_id
@@ -290,7 +240,7 @@ def allowed_to_delete_request(access_info, data_request_id, db_client):
 
 
 def delete_data_request_wrapper(
-    db_client: DatabaseClient, data_request_id: int, access_info: AccessInfo
+    db_client: DatabaseClient, data_request_id: int, access_info: AccessInfoPrimary
 ) -> Response:
     """
     Delete data requests
@@ -300,7 +250,6 @@ def delete_data_request_wrapper(
     """
     return delete_entry(
         middleware_parameters=MiddlewareParameters(
-            db_client=db_client,
             access_info=access_info,
             entry_name="Data request",
             relation=RELATION,
@@ -308,7 +257,7 @@ def delete_data_request_wrapper(
         ),
         id_info=IDInfo(id_column_value=data_request_id),
         permission_checking_function=DeferredFunction(
-            allowed_to_delete_request,
+            is_creator_or_admin,
             access_info=access_info,
             data_request_id=data_request_id,
             db_client=db_client,
@@ -337,7 +286,7 @@ def update_data_request_wrapper(
     db_client: DatabaseClient,
     dto: DataRequestsPutOuterDTO,
     data_request_id: int,
-    access_info: AccessInfo,
+    access_info: AccessInfoPrimary,
 ):
     """
     Update data requests
@@ -348,7 +297,6 @@ def update_data_request_wrapper(
     entry_dict = created_filtered_entry_dict(dto)
     return put_entry(
         middleware_parameters=MiddlewareParameters(
-            db_client=db_client,
             access_info=access_info,
             entry_name="Data request",
             relation=RELATION,
@@ -382,7 +330,7 @@ def created_filtered_entry_dict(dto: DataRequestsPutOuterDTO) -> dict:
 
 
 def get_data_request_by_id_wrapper(
-    db_client: DatabaseClient, access_info: AccessInfo, dto: GetByIDBaseDTO
+    db_client: DatabaseClient, access_info: AccessInfoPrimary, dto: GetByIDBaseDTO
 ) -> Response:
     """
     Get data requests
@@ -415,7 +363,6 @@ def get_data_request_related_sources(db_client: DatabaseClient, dto: GetByIDBase
 
     return get_related_resource(
         get_related_resources_parameters=GetRelatedResourcesParameters(
-            db_client=db_client,
             dto=dto,
             db_client_method=DatabaseClient.get_data_requests,
             primary_relation=Relations.DATA_REQUESTS,
@@ -432,7 +379,6 @@ def get_data_request_related_locations(
 ) -> Response:
     return get_related_resource(
         get_related_resources_parameters=GetRelatedResourcesParameters(
-            db_client=db_client,
             dto=dto,
             db_client_method=DatabaseClient.get_data_requests,
             primary_relation=Relations.DATA_REQUESTS,
@@ -480,11 +426,10 @@ class CreateDataRequestRelatedLocationLogic(PostLogic):
 
 
 def create_data_request_related_source(
-    db_client: DatabaseClient, access_info: AccessInfo, dto: RelatedSourceByIDDTO
+    db_client: DatabaseClient, access_info: AccessInfoPrimary, dto: RelatedSourceByIDDTO
 ):
     post_logic = CreateDataRequestRelatedSourceLogic(
         middleware_parameters=MiddlewareParameters(
-            db_client=db_client,
             access_info=access_info,
             entry_name="Request-Source association",
             relation=RELATED_SOURCES_RELATION,
@@ -503,11 +448,10 @@ def create_data_request_related_source(
 
 
 def delete_data_request_related_source(
-    db_client: DatabaseClient, access_info: AccessInfo, dto: RelatedSourceByIDDTO
+    db_client: DatabaseClient, access_info: AccessInfoPrimary, dto: RelatedSourceByIDDTO
 ):
     return delete_entry(
         middleware_parameters=MiddlewareParameters(
-            db_client=db_client,
             access_info=access_info,
             entry_name="Request-Source association",
             relation=RELATED_SOURCES_RELATION,
@@ -517,7 +461,7 @@ def delete_data_request_related_source(
             additional_where_mappings=dto.get_where_mapping(),
         ),
         permission_checking_function=DeferredFunction(
-            allowed_to_delete_request,
+            is_creator_or_admin,
             access_info=access_info,
             data_request_id=dto.resource_id,
             db_client=db_client,
@@ -526,11 +470,12 @@ def delete_data_request_related_source(
 
 
 def create_data_request_related_location(
-    db_client: DatabaseClient, access_info: AccessInfo, dto: RelatedLocationsByIDDTO
+    db_client: DatabaseClient,
+    access_info: AccessInfoPrimary,
+    dto: RelatedLocationsByIDDTO,
 ):
     post_logic = CreateDataRequestRelatedLocationLogic(
         middleware_parameters=MiddlewareParameters(
-            db_client=db_client,
             access_info=access_info,
             entry_name="Request-Location association",
             relation=Relations.LINK_LOCATIONS_DATA_REQUESTS.value,
@@ -549,11 +494,12 @@ def create_data_request_related_location(
 
 
 def delete_data_request_related_location(
-    db_client: DatabaseClient, access_info: AccessInfo, dto: RelatedLocationsByIDDTO
+    db_client: DatabaseClient,
+    access_info: AccessInfoPrimary,
+    dto: RelatedLocationsByIDDTO,
 ):
     return delete_entry(
         middleware_parameters=MiddlewareParameters(
-            db_client=db_client,
             access_info=access_info,
             entry_name="Request-Location association",
             relation=Relations.LINK_LOCATIONS_DATA_REQUESTS.value,
@@ -563,9 +509,26 @@ def delete_data_request_related_location(
             additional_where_mappings=dto.get_where_mapping(),
         ),
         permission_checking_function=DeferredFunction(
-            allowed_to_delete_request,
+            is_creator_or_admin,
             access_info=access_info,
             data_request_id=dto.resource_id,
             db_client=db_client,
         ),
     )
+
+
+def withdraw_data_request_wrapper(
+    db_client: DatabaseClient, data_request_id: int, access_info: AccessInfoPrimary
+) -> Response:
+    if not is_creator_or_admin(
+        access_info=access_info, data_request_id=data_request_id, db_client=db_client
+    ):
+        FlaskResponseManager.abort(
+            code=HTTPStatus.FORBIDDEN,
+            message="User does not have permission to perform this action.",
+        )
+    db_client.update_data_request(
+        entry_id=data_request_id,
+        column_edit_mappings={"request_status": RequestStatus.REQUEST_WITHDRAWN.value},
+    )
+    return message_response("Data request successfully withdrawn.")

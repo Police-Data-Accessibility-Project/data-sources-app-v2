@@ -4,30 +4,23 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Dict, Optional
 
-import pytest
 from flask.testing import FlaskClient
 
-from database_client.database_client import DatabaseClient
 from database_client.db_client_dataclasses import WhereMapping
-from database_client.enums import RequestUrgency, LocationType, RequestStatus
+from database_client.enums import RequestUrgency, LocationType, RequestStatus, SortOrder
 from middleware.constants import DATA_KEY
 from middleware.enums import PermissionsEnum, RecordType
-from middleware.schema_and_dto_logic.primary_resource_schemas.data_requests_schemas import (
-    GetByIDDataRequestsResponseSchema,
-    GetManyDataRequestsResponseSchema,
-)
-from middleware.schema_and_dto_logic.primary_resource_schemas.data_sources_schemas import (
-    DataSourceExpandedSchema,
-    DataSourcesGetManySchema,
-)
 from middleware.util import get_enum_values
 from resources.endpoint_schema_config import SchemaConfigs
-from tests.conftest import dev_db_client, flask_client_with_db
-from tests.helper_scripts.common_endpoint_calls import create_data_source_with_endpoint
 from tests.helper_scripts.common_test_data import (
-    create_test_data_request,
-    TestDataCreatorFlask,
     get_random_number_for_testing,
+    get_test_name,
+)
+from tests.helper_scripts.complex_test_data_creation_functions import (
+    create_test_data_request,
+)
+from tests.helper_scripts.helper_classes.TestDataCreatorFlask import (
+    TestDataCreatorFlask,
 )
 from tests.helper_scripts.constants import (
     DATA_REQUESTS_BASE_ENDPOINT,
@@ -37,33 +30,12 @@ from tests.helper_scripts.constants import (
     DATA_REQUESTS_RELATED_LOCATIONS,
     DATA_REQUESTS_POST_DELETE_RELATED_LOCATIONS_ENDPOINT,
 )
-from tests.helper_scripts.helper_classes.IntegrationTestSetup import (
-    integration_test_setup,
-)
+
 from tests.helper_scripts.helper_classes.TestUserSetup import TestUserSetup
-from tests.helper_scripts.helper_functions import (
-    create_test_user_setup,
-    add_query_params,
-)
+
 from tests.helper_scripts.run_and_validate_request import run_and_validate_request
-from tests.helper_scripts.helper_classes.IntegrationTestSetup import (
-    IntegrationTestSetup,
-)
+
 from conftest import test_data_creator_flask, monkeysession
-
-
-@dataclass
-class DataRequestsTestSetup(IntegrationTestSetup):
-    submission_notes: str = str(uuid.uuid4())
-
-
-@pytest.fixture
-def ts(flask_client_with_db, dev_db_client):
-    return DataRequestsTestSetup(
-        flask_client=flask_client_with_db,
-        db_client=dev_db_client,
-        tus=create_test_user_setup(flask_client_with_db),
-    )
 
 
 def test_data_requests_get(
@@ -71,9 +43,9 @@ def test_data_requests_get(
 ):
 
     tdc = test_data_creator_flask
-    tdc.clear_test_data()
     # Delete all data from the data requests table
     tdc.db_client.execute_raw_sql("""DELETE FROM data_requests""")
+    tdc.clear_test_data()
 
     tus_creator = tdc.standard_user()
 
@@ -86,72 +58,76 @@ def test_data_requests_get(
         data_source_id=ds_info.id,
     )
 
-    # Add another data source, and set its approval status to `Active`
+    # Add another data_request, and set its approval status to `Active`
     dr_info_2 = tdc.data_request(tus_creator)
 
-    json_data = run_and_validate_request(
-        flask_client=tdc.flask_client,
-        http_method="put",
-        endpoint=DATA_REQUESTS_BY_ID_ENDPOINT.format(data_request_id=dr_info_2.id),
+    tdc.request_validator.update_data_request(
+        data_request_id=dr_info_2.id,
         headers=tdc.get_admin_tus().jwt_authorization_header,
-        json={"entry_data": {"request_status": "Active"}},
+        entry_data={"request_status": "Active"},
     )
 
-    expected_schema = SchemaConfigs.DATA_REQUESTS_GET_MANY.value.primary_output_schema
-    # Modify exclude to account for old data which did not have archive_reason and creator_user_id
-    expected_schema.exclude.update(
-        ["data.archive_reason", "data.creator_user_id", "data.internal_notes"]
-    )
-    json_data = run_and_validate_request(
-        flask_client=tdc.flask_client,
-        http_method="get",
-        endpoint=DATA_REQUESTS_BASE_ENDPOINT,
+    data = tdc.request_validator.get_data_requests(
         headers=tus_creator.jwt_authorization_header,
-        expected_schema=expected_schema,
-    )
-    assert len(json_data[DATA_KEY]) == 2
+    )[DATA_KEY]
 
-    # Validate that at least one entry returned has data_sources
-    # TODO: This passes in test but not stage, which uses actual data requests which are not yet linked to data sources.
-    # an_entry_has_data_sources = False
-    # for entry in json_data[DATA_KEY]:
-    #     data_sources = entry["data_sources"]
-    #     if len(data_sources) > 0:
-    #         DataSourceExpandedSchema().load(data_sources[0])
-    #         an_entry_has_data_sources = True
-    #         break
-    # assert an_entry_has_data_sources
+    assert len(data) == 2
+
+    # Add another data request, set its approval status to `Archived`
+    # THen perform a search for both Active and Archived
+    dr_info_3 = tdc.data_request(tus_creator)
+
+    tdc.request_validator.update_data_request(
+        data_request_id=dr_info_3.id,
+        headers=tdc.get_admin_tus().jwt_authorization_header,
+        entry_data={"request_status": "Archived"},
+    )
+
+    data = tdc.request_validator.get_data_requests(
+        headers=tus_creator.jwt_authorization_header,
+        request_statuses=[RequestStatus.ACTIVE, RequestStatus.ARCHIVED],
+    )[DATA_KEY]
+
+    assert len(data) == 2
 
     # Give user admin permission
     tdc.db_client.add_user_permission(
-        user_email=tus_creator.user_info.email, permission=PermissionsEnum.DB_WRITE
+        user_id=tus_creator.user_info.user_id, permission=PermissionsEnum.DB_WRITE
     )
 
-    admin_json_data = run_and_validate_request(
-        flask_client=tdc.flask_client,
-        http_method="get",
-        endpoint=DATA_REQUESTS_BASE_ENDPOINT,
+    admin_data = tdc.request_validator.get_data_requests(
         headers=tus_creator.jwt_authorization_header,
-    )
+    )[DATA_KEY]
 
     # Assert admin columns are greater than user columns
-    assert len(admin_json_data[DATA_KEY][0]) > len(json_data[DATA_KEY][0])
+    assert len(admin_data[0]) > len(data[0])
 
     # Run get again, this time filtering the request status to be active
-    json_data = run_and_validate_request(
-        flask_client=tdc.flask_client,
-        http_method="get",
-        endpoint=add_query_params(
-            url=DATA_REQUESTS_BASE_ENDPOINT,
-            params={"request_status": "Active"},
-        ),
+    data = tdc.request_validator.get_data_requests(
         headers=tus_creator.jwt_authorization_header,
-        expected_schema=expected_schema,
-    )
+        request_statuses=[RequestStatus.ACTIVE],
+    )[DATA_KEY]
 
     # The more recent data request should be returned, but the old one should be filtered out
-    assert len(json_data[DATA_KEY]) == 1
-    assert int(json_data[DATA_KEY][0]["id"]) == int(dr_info_2.id)
+    assert len(data) == 1
+    assert int(data[0]["id"]) == int(dr_info_2.id)
+
+    # Create additional intake data request to populate
+    tdc.data_request(tus_creator)
+
+    # Test sorting
+    def get_sorted_data_requests(sort_order: SortOrder):
+        return tdc.request_validator.get_data_requests(
+            headers=tus_creator.jwt_authorization_header,
+            request_statuses=[RequestStatus.INTAKE],
+            sort_by="id",
+            sort_order=sort_order,
+        )
+
+    data_asc = get_sorted_data_requests(SortOrder.ASCENDING)[DATA_KEY]
+    data_desc = get_sorted_data_requests(SortOrder.DESCENDING)[DATA_KEY]
+
+    assert int(data_asc[0]["id"]) < int(data_desc[0]["id"])
 
 
 def test_data_requests_post(
@@ -193,21 +169,22 @@ def test_data_requests_post(
 
     location_info_1 = {
         "type": "Locality",
-        "state": "California",
-        "county": "Orange",
-        "locality": "Laguna Hills",
+        "state_name": "California",
+        "county_name": "Orange",
+        "locality_name": "Laguna Hills",
     }
     location_info_2 = {
         "type": "Locality",
-        "state": "California",
-        "county": "Orange",
-        "locality": "Seal Beach",
+        "state_name": "California",
+        "county_name": "Orange",
+        "locality_name": "Seal Beach",
     }
 
     json_request = {
         "request_info": {
             "submission_notes": submission_notes,
-            "title": uuid.uuid4().hex,
+            "title": get_test_name(),
+            "data_requirements": uuid.uuid4().hex,
             "request_urgency": RequestUrgency.URGENT.value,
             "coverage_range": "2000-2005",
         },
@@ -225,9 +202,9 @@ def test_data_requests_post(
     locations = data["locations"]
     assert len(locations) == 2
     for location in locations:
-        if location["locality_name"] == location_info_1["locality"]:
+        if location["locality_name"] == location_info_1["locality_name"]:
             continue
-        if location["locality_name"] == location_info_2["locality"]:
+        if location["locality_name"] == location_info_2["locality_name"]:
             continue
         assert False
 
@@ -240,7 +217,7 @@ def test_data_requests_post(
     json_request = {
         "request_info": {
             "submission_notes": submission_notes,
-            "title": uuid.uuid4().hex,
+            "title": get_test_name(),
             "request_urgency": RequestUrgency.URGENT.value,
         },
     }
@@ -255,7 +232,7 @@ def test_data_requests_post(
     post_data_request(
         json_request,
         use_authorization_header=False,
-        expected_response_status=HTTPStatus.UNAUTHORIZED,
+        expected_response_status=HTTPStatus.BAD_REQUEST,
     )
 
     # Check that response fails if using invalid columns
@@ -263,7 +240,7 @@ def test_data_requests_post(
         json_request={
             "request_info": {
                 "submission_notes": submission_notes,
-                "title": uuid.uuid4().hex,
+                "title": get_test_name(),
                 "request_urgency": RequestUrgency.URGENT.value,
                 "invalid_column": uuid.uuid4().hex,
             }
@@ -279,6 +256,12 @@ def test_data_requests_by_id_get(
     admin_tus = tdc.get_admin_tus()
 
     tdr = tdc.data_request(admin_tus)
+
+    # Create data source and link to data request
+    data_source_id = tdc.data_source().id
+    tdc.link_data_request_to_data_source(
+        data_source_id=data_source_id, data_request_id=tdr.id
+    )
 
     expected_schema = SchemaConfigs.DATA_REQUESTS_BY_ID_GET.value.primary_output_schema
     # Modify exclude to account for old data which did not have archive_reason and creator_user_id
@@ -296,6 +279,7 @@ def test_data_requests_by_id_get(
     )
 
     assert api_json_data[DATA_KEY]["submission_notes"] == tdr.submission_notes
+    assert api_json_data[DATA_KEY]["data_sources"][0]["id"] == int(data_source_id)
 
     # Run with JWT header
     jwt_json_data = run_and_validate_request(
@@ -342,7 +326,7 @@ def test_data_requests_by_id_put(
         json={
             "entry_data": {
                 "submission_notes": new_submission_notes,
-                "title": uuid.uuid4().hex,
+                "title": get_test_name(),
                 "request_urgency": RequestUrgency.URGENT.value,
                 "data_requirements": uuid.uuid4().hex,
                 "coverage_range": uuid.uuid4().hex,
@@ -370,7 +354,7 @@ def test_data_requests_by_id_put(
         json={
             "entry_data": {
                 "submission_notes": new_submission_notes,
-                "title": uuid.uuid4().hex,
+                "title": get_test_name(),
                 "request_urgency": RequestUrgency.URGENT.value,
                 "data_requirements": uuid.uuid4().hex,
                 "coverage_range": uuid.uuid4().hex,
@@ -461,63 +445,6 @@ def get_data_request_related_sources_with_endpoint(
         headers=api_authorization_header,
         expected_json_content=expected_json_content,
         expected_schema=SchemaConfigs.DATA_REQUESTS_RELATED_SOURCES_GET.value.primary_output_schema,
-    )
-
-
-class DataRequestByRelatedSourcesTestSetup(IntegrationTestSetup):
-
-    def __init__(
-        self,
-        flask_client: FlaskClient,
-        db_client: DatabaseClient,
-    ):
-        self.flask_client = flask_client
-        self.db_client = db_client
-        """
-        Create three users:
-        - USER_ADMIN: a user with DB_WRITE permissions
-        - USER_OWNER: a user who owns/creates a data request
-        - USER_NON_OWNER: a user who does not own/create a data request
-        """
-        # Represents an admin
-        self.tus_admin = create_test_user_setup(
-            self.flask_client, permissions=[PermissionsEnum.DB_WRITE]
-        )
-        # Represents a user who owns/create a data request
-        self.tus_owner = create_test_user_setup(self.flask_client)
-        # Represents a user who does not own/create a data request
-        self.tus_non_owner = create_test_user_setup(self.flask_client)
-
-        # USER_ADMIN creates a data source
-        self.created_data_source = create_data_source_with_endpoint(
-            flask_client=self.flask_client,
-            jwt_authorization_header=self.tus_admin.jwt_authorization_header,
-        )
-
-        # USER_OWNER creates a data request
-        self.created_data_request = create_test_data_request(
-            flask_client=self.flask_client,
-            jwt_authorization_header=self.tus_owner.jwt_authorization_header,
-        )
-
-    def get_data_request_related_sources_with_given_data_request_id(
-        self,
-        api_authorization_header: dict,
-        expected_json_content: Optional[dict] = None,
-    ):
-        get_data_request_related_sources_with_endpoint(
-            flask_client=self.flask_client,
-            api_authorization_header=api_authorization_header,
-            data_request_id=self.created_data_request.id,
-            expected_json_content=expected_json_content,
-        )
-
-
-@pytest.fixture
-def related_agencies_test_setup(integration_test_setup: IntegrationTestSetup):
-    return DataRequestByRelatedSourcesTestSetup(
-        flask_client=integration_test_setup.flask_client,
-        db_client=integration_test_setup.db_client,
     )
 
 
@@ -691,23 +618,15 @@ def test_link_unlink_data_requests_with_locations(
         }
     )
 
-    location_post_delete_endpoint = (
-        DATA_REQUESTS_POST_DELETE_RELATED_LOCATIONS_ENDPOINT.format(
-            data_request_id=cdr.id, location_id=location_id
-        )
-    )
-
     def post_location_association(
         tus: TestUserSetup = admin_tus,
         expected_response_status: HTTPStatus = HTTPStatus.OK,
         expected_schema=SchemaConfigs.DATA_REQUESTS_RELATED_LOCATIONS_DELETE.value.primary_output_schema,
         expected_json_content: Optional[dict] = None,
     ):
-
-        run_and_validate_request(
-            flask_client=tdc.flask_client,
-            http_method="post",
-            endpoint=location_post_delete_endpoint,
+        return tdc.request_validator.link_data_request_with_location(
+            data_request_id=cdr.id,
+            location_id=location_id,
             headers=tus.jwt_authorization_header,
             expected_response_status=expected_response_status,
             expected_schema=expected_schema,
@@ -739,10 +658,9 @@ def test_link_unlink_data_requests_with_locations(
         expected_schema=SchemaConfigs.DATA_REQUESTS_RELATED_LOCATIONS_DELETE.value.primary_output_schema,
         expected_json_content: Optional[dict] = None,
     ):
-        run_and_validate_request(
-            flask_client=tdc.flask_client,
-            http_method="delete",
-            endpoint=location_post_delete_endpoint,
+        tdc.request_validator.unlink_data_request_with_location(
+            data_request_id=cdr.id,
+            location_id=location_id,
             headers=tus.jwt_authorization_header,
             expected_response_status=expected_response_status,
             expected_schema=expected_schema,
@@ -771,3 +689,43 @@ def test_link_unlink_data_requests_with_locations(
 
     data = get_locations()
     assert data == []
+
+
+def test_data_request_withdraw(test_data_creator_flask: TestDataCreatorFlask):
+    tdc = test_data_creator_flask
+    tus_owner = tdc.standard_user()
+    data_request = tdc.data_request(user_tus=tus_owner)
+
+    tdc.request_validator.withdraw_request(
+        data_request_id=data_request.id, headers=tus_owner.jwt_authorization_header
+    )
+
+    request_status = tdc.request_validator.get_data_request_by_id(
+        data_request_id=data_request.id, headers=tus_owner.jwt_authorization_header
+    )["data"]["request_status"]
+
+    assert request_status == RequestStatus.REQUEST_WITHDRAWN.value
+
+    # Test that this works for an admin user as well
+    tus_admin = tdc.get_admin_tus()
+    data_request = tdc.data_request(user_tus=tus_owner)
+
+    tdc.request_validator.withdraw_request(
+        data_request_id=data_request.id, headers=tus_admin.jwt_authorization_header
+    )
+
+    request_status = tdc.request_validator.get_data_request_by_id(
+        data_request_id=data_request.id, headers=tus_admin.jwt_authorization_header
+    )["data"]["request_status"]
+
+    assert request_status == RequestStatus.REQUEST_WITHDRAWN.value
+
+    # Test that this doesn't work for a standard user who is not the owner
+    tus_non_owner = tdc.standard_user()
+    data_request = tdc.data_request(user_tus=tus_owner)
+
+    tdc.request_validator.withdraw_request(
+        data_request_id=data_request.id,
+        headers=tus_non_owner.jwt_authorization_header,
+        expected_response_status=HTTPStatus.FORBIDDEN,
+    )

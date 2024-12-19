@@ -6,7 +6,11 @@ from flask_restx import Namespace, Model
 from flask_restx.reqparse import RequestParser
 from marshmallow import Schema
 
-from middleware.access_logic import get_authentication, AuthenticationInfo
+from middleware.access_logic import (
+    get_authentication,
+    AuthenticationInfo,
+    ParserDeterminator,
+)
 from middleware.argument_checking_logic import check_for_mutually_exclusive_arguments
 from middleware.enums import PermissionsEnum, AccessTypeEnum
 from middleware.schema_and_dto_logic.dynamic_logic.dynamic_schema_documentation_construction import (
@@ -22,6 +26,8 @@ from resources.resource_helpers import (
     add_api_key_header_arg,
     ResponseInfo,
     create_response_dictionary,
+    add_password_reset_token_header_arg,
+    add_validate_email_header_arg,
 )
 from resources.endpoint_schema_config import SchemaConfigs, OutputSchemaManager
 
@@ -87,62 +93,23 @@ def authentication_required(
 def endpoint_info(
     namespace: Namespace,
     auth_info: AuthenticationInfo,
-    input_schema: Optional[Schema] = None,
-    input_model: Optional[Model] = None,
-    input_model_name: Optional[str] = None,
-    **doc_kwargs,
-):
-    """
-
-    :param namespace: The namespace to add the endpoint to
-    :param auth_info: info on how the endpoint is authenticated
-    :param input_schema: info on the schema for the input. Mutually exclusive with input_schema
-    :param input_model: info on the model for the input. Mutually exclusive with input_model
-    :param doc_kwargs: Additional arguments for the endpoint's documentation
-    :return:
-    """
-
-    # If input schema is defined, create parser and model using schema and namespace
-    input_doc_info = _get_input_doc_info(
-        namespace=namespace,
-        input_schema=input_schema,
-        input_model=input_model,
-        input_model_name=input_model_name,
-    )
-    _add_auth_info_to_parser(auth_info=auth_info, parser=input_doc_info.parser)
-
-    doc_kwargs["expect"] = [input_doc_info.model, input_doc_info.parser]
-
-    def decorator(func: Callable):
-        @wraps(func)
-        @handle_exceptions
-        @authentication_required(
-            allowed_access_methods=auth_info.allowed_access_methods,
-            restrict_to_permissions=auth_info.restrict_to_permissions,
-            no_auth=auth_info.no_auth,
-        )
-        @namespace.doc(**doc_kwargs)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def endpoint_info_2(
-    namespace: Namespace,
-    auth_info: AuthenticationInfo,
     schema_config: SchemaConfigs,
     response_info: ResponseInfo,
-    **doc_kwargs,
+    description: str = "",
+    **additional_doc_kwargs,
 ):
     """
     A more sophisticated form of `endpoint_info`, with more robust
     schema and response definition.
     Designed to eventually replace all instances of endpoint_info
     """
-    # TODO: Replace original endpoint info with this, and rename to `endpoint_info`
+
+    doc_kwargs = {"description": description, **additional_doc_kwargs}
+    if auth_info.requires_admin_permissions():
+        doc_kwargs["description"] = (
+            "**Requires admin permissions.**\n" + doc_kwargs["description"]
+        )
+
     if schema_config.value.input_schema is not None:
         input_doc_info = get_restx_param_documentation(
             namespace=namespace,
@@ -150,7 +117,7 @@ def endpoint_info_2(
             model_name=f"{schema_config.name}_{namespace.name}_input",
         )
     else:
-        input_doc_info = None
+        input_doc_info = FlaskRestxDocInfo(model=None, parser=namespace.parser())
 
     if input_doc_info is not None:
         _add_auth_info_to_parser(auth_info=auth_info, parser=input_doc_info.parser)
@@ -241,45 +208,27 @@ def _get_output_model(namespace: Namespace, output_schema: Schema) -> Optional[M
         return None
 
 
+ACCESS_TYPE_HEADER_ARG_FUNC_MAP = {
+    AccessTypeEnum.JWT: add_jwt_header_arg,
+    AccessTypeEnum.API_KEY: add_api_key_header_arg,
+    AccessTypeEnum.RESET_PASSWORD: add_password_reset_token_header_arg,
+    AccessTypeEnum.VALIDATE_EMAIL: add_validate_email_header_arg,
+}
+
+
 def _add_auth_info_to_parser(auth_info: AuthenticationInfo, parser: RequestParser):
     if auth_info.no_auth:
         return
-    # Depending on auth info, add authentication information to input parser
-    jwt_allowed = AccessTypeEnum.JWT in auth_info.allowed_access_methods
-    api_allowed = AccessTypeEnum.API_KEY in auth_info.allowed_access_methods
 
-    if jwt_allowed and api_allowed:
+    pd = ParserDeterminator(auth_info.allowed_access_methods)
+
+    if pd.is_access_type_allowed(AccessTypeEnum.JWT) and pd.is_access_type_allowed(
+        AccessTypeEnum.API_KEY
+    ):
         add_jwt_or_api_key_header_arg(parser)
-    elif jwt_allowed:
-        add_jwt_header_arg(parser)
-    elif api_allowed:
-        add_api_key_header_arg(parser)
-    else:
-        raise Exception("Must have at least one access method")
-
-
-def _get_input_doc_info(
-    namespace, input_schema, input_model=None, input_model_name: Optional[str] = None
-) -> FlaskRestxDocInfo:
-    check_for_mutually_exclusive_arguments(input_schema, input_model)
-    if input_model is not None:
-        return FlaskRestxDocInfo(
-            model=input_model,
-            parser=namespace.parser(),
-        )
-    if input_schema is None:
-        return FlaskRestxDocInfo(
-            model=None,
-            parser=namespace.parser(),
-        )
-
-    # Assume input schema is defined
-    return get_restx_param_documentation(
-        namespace=namespace,
-        schema=input_schema,
-        model_name=(
-            input_schema.__class__.__name__
-            if input_model_name is None
-            else input_model_name
-        ),
-    )
+        return
+    for access_type in auth_info.allowed_access_methods:
+        header_arg_function = ACCESS_TYPE_HEADER_ARG_FUNC_MAP[access_type]
+        header_arg_function(parser)
+        return
+    raise Exception("Must have at least one access method")

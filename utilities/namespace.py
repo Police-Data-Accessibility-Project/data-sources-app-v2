@@ -9,6 +9,10 @@ class AppNamespaces(Enum):
     DEFAULT = NamespaceAttributes(path="/", description="Default Namespace")
     SEARCH = NamespaceAttributes(path="search", description="Search Namespace")
     AUTH = NamespaceAttributes(path="auth", description="Authentication Namespace")
+    OAUTH = NamespaceAttributes(path="oauth", description="OAuth Namespace")
+    PERMISSIONS = NamespaceAttributes(
+        path="permissions", description="Permissions Namespace"
+    )
     DEV = NamespaceAttributes(path="dev", description="Developer Namespace")
     DATA_REQUESTS = NamespaceAttributes(
         path="data-requests", description="Data Requests Namespace"
@@ -24,6 +28,10 @@ class AppNamespaces(Enum):
     NOTIFICATIONS = NamespaceAttributes(
         path="notifications", description="Notifications Namespace"
     )
+    MAP = NamespaceAttributes(path="map", description="Map Namespace")
+    BULK = NamespaceAttributes(path="bulk", description="Bulk Namespace")
+    MATCH = NamespaceAttributes(path="match", description="Match Namespace")
+    LOCATIONS = NamespaceAttributes(path="locations", description="Locations Namespace")
 
 
 def create_namespace(

@@ -58,9 +58,13 @@
 			data-test="typeahead-list-not-found"
 		>
 			<li class="max-w-[unset]">
-				<span>
-					<strong>No results found.</strong> Please check your spelling and
-					search for a place in the United States.
+				<slot
+					v-if="$slots['not-found']"
+					name="not-found"
+					v-bind="notFound ?? {}"
+				/>
+				<span v-else>
+					<strong>No results found.</strong> Please check your spelling.
 				</span>
 			</li>
 		</ul>
@@ -220,6 +224,9 @@ defineExpose({
 	boldMatchText,
 	clearInput,
 	focusInput,
+	get value() {
+		return input.value;
+	},
 });
 </script>
 
@@ -232,9 +239,13 @@ defineExpose({
 	@apply max-w-[max-content] text-lg py-1 font-medium;
 }
 
+.pdap-typeahead-input {
+	@apply rounded-md;
+}
+
 .pdap-typeahead-input,
 .pdap-typeahead-list {
-	@apply bg-neutral-50 dark:bg-neutral-950 border border-neutral-500 border-solid p-2 text-neutral-950 dark:text-neutral-50;
+	@apply bg-neutral-50 border-2 border-neutral-500 border-solid p-2 text-neutral-950;
 }
 
 .pdap-typeahead-input::placeholder {
@@ -244,7 +255,7 @@ defineExpose({
 .pdap-typeahead-input:focus,
 .pdap-typeahead-input:focus-within,
 .pdap-typeahead-input:focus-visible {
-	@apply border-2 border-blue-light border-solid outline-none;
+	@apply border-2 border-brand-gold border-solid outline-none;
 }
 
 .pdap-typeahead-list {
@@ -259,6 +270,6 @@ defineExpose({
 .pdap-typeahead-list-item:focus-visible,
 .pdap-typeahead-list-item:focus-within,
 .pdap-typeahead-list-item:hover {
-	@apply outline-none text-neutral-950 dark:text-neutral-50 bg-neutral-300 dark:bg-neutral-700;
+	@apply outline-none text-neutral-950 bg-neutral-300;
 }
 </style>

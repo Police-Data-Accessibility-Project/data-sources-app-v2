@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Optional, Callable, Type
+from typing import Optional, Callable, Type, Any
 
 import psycopg.errors
 import sqlalchemy
@@ -13,9 +13,23 @@ from middleware.custom_dataclasses import DeferredFunction
 from middleware.dynamic_request_logic.supporting_classes import (
     MiddlewareParameters,
     PutPostBase,
+    PostPutHandler,
+    PutPostRequestInfo,
 )
 from middleware.flask_response_manager import FlaskResponseManager
 from middleware.util_dynamic import execute_if_not_none
+
+
+class PostHandler(PostPutHandler):
+
+    def call_database_client_method(self, request: PutPostRequestInfo):
+        """
+        Runs the database client method
+        and sets the request entry id in-place with the result
+        """
+        request.entry_id = self.mp.db_client_method(
+            self.mp.db_client, column_value_mappings=request.entry
+        )
 
 
 class PostLogic(PutPostBase):
@@ -42,16 +56,42 @@ class PostLogic(PutPostBase):
             self.id_val = self.mp.db_client_method(
                 self.mp.db_client, column_value_mappings=self.entry
             )
-        except sqlalchemy.exc.IntegrityError:
-            FlaskResponseManager.abort(
-                code=HTTPStatus.CONFLICT,
-                message=f"{self.mp.entry_name} already exists.",
-            )
+        except sqlalchemy.exc.IntegrityError as e:
+            if e.orig.sqlstate == "23505":
+                FlaskResponseManager.abort(
+                    code=HTTPStatus.CONFLICT,
+                    message=f"{self.mp.entry_name} already exists.",
+                )
+            elif e.orig.sqlstate == "23503":
+                FlaskResponseManager.abort(
+                    code=HTTPStatus.BAD_REQUEST,
+                    message=f"{self.mp.entry_name} not found.",
+                )
+            else:
+                FlaskResponseManager.abort(
+                    code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                    message=f"Error creating {self.mp.entry_name}.",
+                )
 
     def make_response(self) -> Response:
         return created_id_response(
             new_id=str(self.id_val), message=f"{self.mp.entry_name} created."
         )
+
+
+def post_entry_with_handler(
+    handler: PostHandler,
+    dto: Any,
+):
+    request = PutPostRequestInfo(entry=dict(dto), dto=dto)
+    handler.mass_execute([request])
+    if request.error_message is not None:
+        FlaskResponseManager.abort(
+            code=HTTPStatus.BAD_REQUEST, message=request.error_message
+        )
+    return created_id_response(
+        new_id=str(request.entry_id), message=f"{handler.mp.entry_name} created."
+    )
 
 
 def post_entry(
@@ -61,6 +101,7 @@ def post_entry(
     relation_role_parameters: RelationRoleParameters = RelationRoleParameters(),
     post_logic_class: Optional[Type[PostLogic]] = PostLogic,
     check_for_permission: bool = True,
+    make_response: bool = True,
 ) -> Response:
 
     post_logic = post_logic_class(
@@ -70,7 +111,7 @@ def post_entry(
         relation_role_parameters=relation_role_parameters,
         check_for_permission=check_for_permission,
     )
-    return post_logic.execute()
+    return post_logic.execute(make_response=make_response)
 
 
 def try_to_add_entry(middleware_parameters: MiddlewareParameters, entry: dict) -> str:

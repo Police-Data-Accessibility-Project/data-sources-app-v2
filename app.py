@@ -6,15 +6,20 @@ from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 
 from middleware.util import get_env_variable
+from resources.Batch import namespace_bulk
 from resources.Callback import namespace_auth
 from resources.DataRequests import namespace_data_requests
 from resources.GithubDataRequests import namespace_github
-from resources.HomepageSearchCache import namespace_homepage_search_cache
 from resources.LinkToGithub import namespace_link_to_github
+from resources.Locations import namespace_locations
 from resources.LoginWithGithub import namespace_login_with_github
+from resources.Map import namespace_map
+from resources.Match import namespace_match
 from resources.Notifications import namespace_notifications
+from resources.OAuth import namespace_oauth
 from resources.Permissions import namespace_permissions
 from resources.Search import namespace_search
+from resources.Signup import namespace_signup
 from resources.TypeaheadSuggestions import (
     namespace_typeahead_suggestions,
 )
@@ -32,14 +37,13 @@ from resources.RequestResetPassword import namespace_request_reset_password
 from resources.ResetPassword import namespace_reset_password
 from resources.ResetTokenValidation import namespace_reset_token_validation
 from resources.UniqueURLChecker import namespace_url_checker
-from resources.User import namespace_user_old
 from resources.CreateTestUserWithElevatedPermissions import namespace_create_test_user
 from resources.UserProfile import namespace_user
 
 NAMESPACES = [
     namespace_api_key,
     namespace_request_reset_password,
-    namespace_user_old,
+    namespace_oauth,
     namespace_reset_token_validation,
     namespace_archives,
     namespace_agencies,
@@ -61,6 +65,11 @@ NAMESPACES = [
     namespace_user,
     namespace_github,
     namespace_notifications,
+    namespace_map,
+    namespace_signup,
+    namespace_bulk,
+    namespace_match,
+    namespace_locations,
 ]
 
 MY_PREFIX = "/api"
@@ -105,9 +114,7 @@ class UpdatedJSONProvider(DefaultJSONProvider):
 def create_app() -> Flask:
     psycopg2_connection = initialize_psycopg_connection()
     config.connection = psycopg2_connection
-    api = Api()
-    for namespace in NAMESPACES:
-        api.add_namespace(namespace)
+    api = get_api_with_namespaces()
     app = Flask(__name__)
     app.json = UpdatedJSONProvider(app)
 
@@ -115,6 +122,9 @@ def create_app() -> Flask:
     app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=15)
     app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
+
+    # Other configuration settings
+    app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
     app.secret_key = get_flask_app_cookie_encryption_key()
     app.wsgi_app = ReverseProxied(app.wsgi_app)
@@ -126,6 +136,18 @@ def create_app() -> Flask:
     jwt.init_app(app)
 
     return app
+
+
+def get_api_with_namespaces():
+    api = Api(
+        version="2.0",
+        title="PDAP Data Sources API",
+        description="The following is the API documentation for the PDAP Data Sources API."
+        "\n\nFor information on how to get started, consult [our getting started guide.](https://docs.pdap.io/api/introduction)",
+    )
+    for namespace in NAMESPACES:
+        api.add_namespace(namespace)
+    return api
 
 
 if __name__ == "__main__":

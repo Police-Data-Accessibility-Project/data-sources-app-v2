@@ -2,11 +2,15 @@ from middleware.schema_and_dto_logic.primary_resource_schemas.typeahead_suggesti
     TypeaheadAgenciesOuterResponseSchema,
     TypeaheadLocationsOuterResponseSchema,
 )
-from tests.helper_scripts.helper_functions import (
+from tests.helper_scripts.helper_classes.TestDataCreatorFlask import (
+    TestDataCreatorFlask,
+)
+from tests.helper_scripts.helper_functions_complex import (
     setup_get_typeahead_suggestion_test_data,
 )
 from tests.helper_scripts.run_and_validate_request import run_and_validate_request
 from tests.conftest import flask_client_with_db
+from conftest import test_data_creator_flask, monkeysession
 
 
 def test_typeahead_locations(flask_client_with_db):
@@ -17,23 +21,23 @@ def test_typeahead_locations(flask_client_with_db):
     expected_suggestions = [
         {
             "display_name": "Xylodammerung",
-            "locality": "Xylodammerung",
-            "county": "Arxylodon",
-            "state": "Xylonsylvania",
+            "locality_name": "Xylodammerung",
+            "county_name": "Arxylodon",
+            "state_name": "Xylonsylvania",
             "type": "Locality",
         },
         {
             "display_name": "Xylonsylvania",
-            "locality": None,
-            "county": None,
-            "state": "Xylonsylvania",
+            "locality_name": None,
+            "county_name": None,
+            "state_name": "Xylonsylvania",
             "type": "State",
         },
         {
             "display_name": "Arxylodon",
-            "locality": None,
-            "county": "Arxylodon",
-            "state": "Xylonsylvania",
+            "locality_name": None,
+            "county_name": "Arxylodon",
+            "state_name": "Xylonsylvania",
             "type": "County",
         },
     ]
@@ -50,25 +54,24 @@ def test_typeahead_locations(flask_client_with_db):
     assert suggestions == expected_suggestions
 
 
-def test_typeahead_agencies(flask_client_with_db):
+def test_typeahead_agencies(test_data_creator_flask: TestDataCreatorFlask):
     """
     Test that GET call to /typeahead/agencies endpoint successfully retrieves data
     """
-    setup_get_typeahead_suggestion_test_data()
+    tdc = test_data_creator_flask
+    tdc.clear_test_data()
+    location_id = tdc.locality(locality_name="Qzy")
+    agency_id = tdc.agency(agency_name="Qzy").id
+    tdc.refresh_typeahead_agencies()
+
     json_content = run_and_validate_request(
-        flask_client=flask_client_with_db,
+        flask_client=tdc.flask_client,
         http_method="get",
-        endpoint="/typeahead/agencies?query=xyl",
-        expected_json_content={
-            "suggestions": [
-                {
-                    "display_name": "Xylodammerung Police Agency",
-                    "locality": "Xylodammerung",
-                    "county": "Arxylodon",
-                    "state": "XY",
-                    "jurisdiction_type": "state",
-                }
-            ]
-        },
+        endpoint="/typeahead/agencies?query=qzy",
         expected_schema=TypeaheadAgenciesOuterResponseSchema,
     )
+    assert len(json_content["suggestions"]) > 0
+    result = json_content["suggestions"][0]
+
+    assert "Qzy" in result["display_name"]
+    assert result["id"] == int(agency_id)

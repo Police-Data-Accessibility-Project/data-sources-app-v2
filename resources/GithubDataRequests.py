@@ -1,5 +1,5 @@
-from middleware.access_logic import AccessInfo, WRITE_ONLY_AUTH_INFO
-from middleware.decorators import endpoint_info_2
+from middleware.access_logic import AccessInfoPrimary, WRITE_ONLY_AUTH_INFO
+from middleware.decorators import endpoint_info
 from middleware.primary_resource_logic.github_issue_app_logic import (
     add_data_request_as_github_issue,
     synchronize_github_issues_with_data_requests,
@@ -15,14 +15,14 @@ namespace_github = create_namespace(namespace_attributes=AppNamespaces.GITHUB)
 @namespace_github.route("/data-requests/issues/<data_request_id>")
 class GithubDataRequestsIssues(PsycopgResource):
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_github,
         auth_info=WRITE_ONLY_AUTH_INFO,
         schema_config=SchemaConfigs.GITHUB_DATA_REQUESTS_ISSUES_POST,
         response_info=ResponseInfo(success_message="Issue created."),
         description="Create GitHub issue for data request",
     )
-    def post(self, data_request_id: int, access_info: AccessInfo):
+    def post(self, data_request_id: int, access_info: AccessInfoPrimary):
         """
         Creates a GitHub issue for a data request, if it does not already exist
         """
@@ -36,7 +36,7 @@ class GithubDataRequestsIssues(PsycopgResource):
 @namespace_github.route("/data-requests/synchronize")
 class GithubDataRequestsSynchronize(PsycopgResource):
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_github,
         auth_info=WRITE_ONLY_AUTH_INFO,
         schema_config=SchemaConfigs.GITHUB_DATA_REQUESTS_SYNCHRONIZE_POST,
@@ -45,7 +45,7 @@ class GithubDataRequestsSynchronize(PsycopgResource):
         ),
         description="Synchronizes Github issues with the database",
     )
-    def post(self, access_info: AccessInfo):
+    def post(self, access_info: AccessInfoPrimary):
         """
         Synchronizes the status of Github issues with their representation in the database
         """

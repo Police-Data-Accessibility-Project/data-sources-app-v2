@@ -1,38 +1,39 @@
-from dataclasses import dataclass
 from typing import Optional
+
+from pydantic import BaseModel
 
 from database_client.db_client_dataclasses import WhereMapping
 from database_client.enums import LocationType, RequestStatus, RequestUrgency
 from middleware.enums import RecordType
-from middleware.schema_and_dto_logic.common_schemas_and_dtos import GetManyBaseDTO
+from middleware.schema_and_dto_logic.common_schemas_and_dtos import (
+    GetManyBaseDTO,
+    GetByIDBaseDTO,
+)
 
 
-@dataclass
-class DataRequestLocationInfoPostDTO:
+class DataRequestLocationInfoPostDTO(BaseModel):
     type: LocationType
-    state: str
-    county: Optional[str] = None
-    locality: Optional[str] = None
+    state_name: str
+    county_name: Optional[str] = None
+    locality_name: Optional[str] = None
 
     def get_where_mappings(self) -> list[WhereMapping]:
         d = {
             "type": self.type,
-            "state": self.state,
+            "state": self.state_name,
         }
-        if self.county is not None:
-            d["county"] = self.county
-        if self.locality is not None:
-            d["locality"] = self.locality
+        if self.county_name is not None:
+            d["county"] = self.county_name
+        if self.locality_name is not None:
+            d["locality"] = self.locality_name
         return WhereMapping.from_dict(d)
 
 
-@dataclass
 class GetManyDataRequestsRequestsDTO(GetManyBaseDTO):
-    request_status: Optional[RequestStatus] = None
+    request_statuses: Optional[list[RequestStatus]] = None
 
 
-@dataclass
-class DataRequestsPutDTO:
+class DataRequestsPutDTO(BaseModel):
     title: Optional[str] = None
     submission_notes: Optional[str] = None
     request_urgency: Optional[RequestUrgency] = None
@@ -47,6 +48,38 @@ class DataRequestsPutDTO:
     pdap_response: Optional[str] = None
 
 
-@dataclass
-class DataRequestsPutOuterDTO:
+class DataRequestsPutOuterDTO(BaseModel):
     entry_data: DataRequestsPutDTO
+
+
+class RelatedSourceByIDDTO(GetByIDBaseDTO):
+    data_source_id: int
+
+    def get_where_mapping(self):
+        return {
+            "data_source_id": int(self.data_source_id),
+            "request_id": int(self.resource_id),
+        }
+
+
+class RelatedLocationsByIDDTO(GetByIDBaseDTO):
+    location_id: int
+
+    def get_where_mapping(self):
+        return {
+            "location_id": int(self.location_id),
+            "data_request_id": int(self.resource_id),
+        }
+
+
+class RequestInfoPostDTO(BaseModel):
+    title: str
+    submission_notes: str
+    request_urgency: RequestUrgency
+    coverage_range: Optional[str] = None
+    data_requirements: Optional[str] = None
+
+
+class DataRequestsPostDTO(BaseModel):
+    request_info: RequestInfoPostDTO
+    location_infos: Optional[list[DataRequestLocationInfoPostDTO]] = None

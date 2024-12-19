@@ -1,4 +1,4 @@
-![Python Version](https://img.shields.io/badge/python-3.11-blue?style=for-the-badge&logo=python&logoColor=ffdd54)
+![Python Version](https://img.shields.io/badge/python-3.12-blue?style=for-the-badge&logo=python&logoColor=ffdd54)
 
 # data-sources-app-v2
 
@@ -50,6 +50,12 @@ source venv/bin/activate
 ```
 
 pip install -r requirements.txt
+pip install "psycopg[binary,pool]"
+
+pre-commit install
+
+# To optionally run the pre-commit against all files (as pre-commit usually only runs on changed files)
+pre-commit run --all-files
 
 ```
 
@@ -63,17 +69,18 @@ Reach out to contact@pdap.io or make noise in Discord if you'd like access to th
 
 The environment variables are as follows:
 * DO_DATABASE_URL: Used to connect to the database.
-* DEV_DB_CONN_STRING: Used to connect to the dev database.
 * VITE_VUE_API_BASE_URL: The base URL for the API
 * VITE_VUE_APP_BASE_URL: The base URL for the UI
 * VITE_ADMIN_API_KEY: Used as the `Basic` auth token for the  web client. Must be in `/client` directory `.env` file.
 * GH_CLIENT_ID: Used to authenticate with GitHub via OAuth. Must correspond to the `client_id` provided by GitHub.
 * GH_CLIENT_SECRET: Used to authenticate with GitHub via OAuth. Must correspond to the `client_secret` provided by GitHub.
 * JWT_SECRET_KEY: Used to sign and verify JWT tokens. Used to identify that any JWT tokens produced are recognizable by this version of the app and no other. Can be customized for local development.
+* RESET_PASSWORD_SECRET_KEY: Used to sign and verify JWT tokens for the reset password feature. Used to identify that any JWT tokens for the reset password feature produced are recognizable by this version of the app and no other.
 * FLASK_APP_COOKIE_ENCRYPTION_KEY: Used to create signed cookies to prevent CSRF attacks. Used to identify that any cookies produced are recognizable by this version of the app and no other. Can be customized for local development.
 * DEVELOPMENT_PASSWORD: Used to create a test user with elevated permissions for the purposes of testing. Developers must provide this password when using the `/dev/create-test-user-with-elevated-permissions` endpoint. Can be customized for local development.
 * GH_API_ACCESS_TOKEN: Used to authenticate with GitHub when adding or getting information about Github Issues. Must correspond to the `access_token` provided by GitHub.
 * GH_ISSUE_REPO_NAME: Identifies the repository, in `<github-username>/<github-repo-name>` format, where the issue will be created, and where information about issues will be retrieved. Can be customized for local development.
+* VALIDATE_EMAIL_SECRET_KEY: Used to sign and verify JWT tokens for the validate email feature. Used to identify that any JWT tokens for the validate email feature produced are recognizable by this version of the app and no other.
 
 
 #### .env Example
@@ -81,7 +88,6 @@ The environment variables are as follows:
 # .env
 
 DO_DATABASE_URL="postgres://data_sources_app:<password>@db-postgresql-nyc3-38355-do-user-8463429-0.c.db.ondigitalocean.com:25060/defaultdb"
-DEV_DB_CONN_STRING="postgresql://data_sources_app_v2:<password>@pdap-db-dev-do-user-8463429-0.c.db.ondigitalocean.com:25060/pdap_dev_db?sslmode=require"
 VITE_VUE_API_BASE_URL="http://localhost:5000"
 VITE_VUE_APP_BASE_URL="http://localhost:8888"
 VITE_ADMIN_API_KEY="1234abcd"
@@ -89,9 +95,11 @@ GH_CLIENT_ID="GithubProvidedClientId"
 GH_CLIENT_SECRET="GithubProvidedClientSecret"
 FLASK_APP_COOKIE_ENCRYPTION_KEY="myCustomFlaskAppSecretKey"
 JWT_SECRET_KEY="myCustomJwtSecretKey"
+RESET_PASSWORD_SECRET_KEY="myCustomResetPasswordSecretKey"
 DEVELOPMENT_PASSWORD="myCustomDevelopmentPassword"
 GH_API_ACCESS_TOKEN="GithubProvidedAccessToken"
 GH_ISSUE_REPO_NAME="github-username/github-repo-name"
+VALIDATE_EMAIL_SECRET_KEY="myCustomValidateEmailSecretKey"
 ```
 
 #### Shell Example

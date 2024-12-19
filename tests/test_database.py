@@ -5,23 +5,25 @@ which test the database-external views and functions
 """
 
 import uuid
+import zoneinfo
 from collections import namedtuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from psycopg import sql
 
 from database_client.database_client import DatabaseClient
 from database_client.db_client_dataclasses import WhereMapping
-from database_client.enums import ApprovalStatus, LocationType, RequestStatus
+from database_client.enums import ApprovalStatus, LocationType, RequestStatus, URLStatus
 from database_client.models import RecentSearch
 from middleware.enums import Relations
 from tests.conftest import live_database_client
 from conftest import test_data_creator_db_client
+from tests.helper_scripts.common_test_data import get_test_name
 from tests.helper_scripts.helper_classes.TestDataCreatorDBClient import (
     TestDataCreatorDBClient,
 )
-from tests.helper_scripts.helper_functions import get_notification_valid_date
+from tests.helper_scripts.helper_functions_simple import get_notification_valid_date
 from utilities.enums import RecordCategories
 
 ID_COLUMN = "state_iso"
@@ -227,10 +229,7 @@ def link_user_followed_test_info(
 
     locality_id = live_database_client.create_locality(
         table_name=Relations.LOCALITIES.value,
-        column_value_mappings={
-            "county_id": county_id,
-            "name": uuid.uuid4().hex,
-        },
+        column_value_mappings={"county_id": county_id, "name": get_test_name()},
     )
 
     # Get newly created location id
@@ -245,7 +244,7 @@ def link_user_followed_test_info(
     )
 
     user_id = live_database_client.create_new_user(
-        email=uuid.uuid4().hex, password_digest=uuid.uuid4().hex
+        email=get_test_name(), password_digest=uuid.uuid4().hex
     )
 
     live_database_client.create_followed_search(
@@ -350,7 +349,7 @@ def test_data_sources_created_at_updated_at(
     # Update data source
     live_database_client.update_data_source(
         entry_id=data_source_id,
-        column_edit_mappings={"name": uuid.uuid4().hex},
+        column_edit_mappings={"name": get_test_name()},
     )
 
     # Get `updated_at` for data source
@@ -395,7 +394,7 @@ def test_approval_status_updated_at(
     assert approval_status_updated_at > initial_approval_status_updated_at
 
     # Make an edit to a different column and confirm that `approval_status_updated_at` is not updated
-    update_data_source({"submitted_name": uuid.uuid4().hex})
+    update_data_source({"submitted_name": get_test_name()})
 
     new_approval_status_updated_at = get_approval_status_updated_at()
     assert approval_status_updated_at == new_approval_status_updated_at
@@ -404,6 +403,8 @@ def test_approval_status_updated_at(
 def test_qualifying_notifications_view(
     test_data_creator_db_client: TestDataCreatorDBClient,
 ):
+    # Note: Based on testing on 11/30/2024, this test may be wonky on the last day of the month
+
     tdc = test_data_creator_db_client
     tdc.clear_test_data()
     old_date = datetime.now() - timedelta(days=60)
@@ -601,6 +602,8 @@ def test_dependent_locations_view(test_data_creator_db_client: TestDataCreatorDB
 def test_user_pending_notifications_view(
     test_data_creator_db_client: TestDataCreatorDBClient,
 ):
+    # Note: Based on testing on 11/30/2024, this test may be wonky on the last day of the month
+
     notification_valid_date = get_notification_valid_date()
 
     tdc = test_data_creator_db_client
@@ -812,3 +815,37 @@ def test_recent_searches_row_limit_maintained(
 
     # Confirm that the original recent search id remains in the list for user 2
     assert user_2_search_record_id in user_2_recent_searches
+
+
+def test_update_broken_source_url_as_of(
+    test_data_creator_db_client: TestDataCreatorDBClient,
+):
+    tdc = test_data_creator_db_client
+
+    now = datetime.now(timezone.utc)
+
+    # Create data source
+    cds = tdc.data_source(approval_status=ApprovalStatus.APPROVED)
+
+    def get_broken_source_url_as_of():
+        return tdc.db_client._select_single_entry_from_relation(
+            relation_name=Relations.DATA_SOURCES.value,
+            columns=["broken_source_url_as_of"],
+            where_mappings=WhereMapping.from_dict({"id": cds.id}),
+        )["broken_source_url_as_of"]
+
+    # Get broken_source_url_as_of, confirm it is null
+    assert get_broken_source_url_as_of() is None
+
+    # Update source url to `broken`
+    tdc.db_client._update_entry_in_table(
+        table_name=Relations.DATA_SOURCES.value,
+        entry_id=cds.id,
+        column_edit_mappings={"url_status": URLStatus.BROKEN.value},
+    )
+
+    # Confirm broken_source_url_as_of is updated
+    # (Allow a margin of error accounting for timezone chicanery)
+    now_pre = now - timedelta(hours=1)
+    now_post = now + timedelta(hours=1)
+    assert now_pre < get_broken_source_url_as_of() < now_post

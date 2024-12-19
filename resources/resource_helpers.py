@@ -22,14 +22,38 @@ def add_api_key_header_arg(parser: RequestParser):
     )
 
 
-def add_jwt_header_arg(parser: RequestParser):
+def add_jwt_header_arg(
+    parser: RequestParser,
+    description: str = "Access token required to access this endpoint",
+    default_name: str = "YOUR_ACCESS_TOKEN",
+):
     parser.add_argument(
         "Authorization",
         type=str,
         required=True,
         location="headers",
-        help="Access token required to access this endpoint",
-        default="Bearer YOUR_ACCESS_TOKEN",
+        help=description,
+        default=f"Bearer {default_name}",
+    )
+
+
+def add_password_reset_token_header_arg(
+    parser: RequestParser,
+):
+    add_jwt_header_arg(
+        parser=parser,
+        description="Password Reset token required to access this endpoint",
+        default_name="Bearer YOUR_PASSWORD_RESET_TOKEN",
+    )
+
+
+def add_validate_email_header_arg(
+    parser: RequestParser,
+):
+    add_jwt_header_arg(
+        parser=parser,
+        description="Email validation token required to access this endpoint",
+        default_name="Bearer YOUR_EMAIL_VALIDATION_TOKEN",
     )
 
 
@@ -80,103 +104,6 @@ def create_response_dictionary(
         HTTPStatus.BAD_REQUEST: "Bad request. Missing or bad authentication or parameters",
         HTTPStatus.FORBIDDEN: "Unauthorized. Forbidden or invalid authentication.",
     }
-
-
-def create_jwt_tokens_model(namespace: Namespace) -> Model:
-    return namespace.model(
-        "JWTTokens",
-        {
-            "access_token": fields.String(
-                required=True, description="The access token of the user"
-            ),
-            "refresh_token": fields.String(
-                required=True, description="The refresh token of the user"
-            ),
-        },
-    )
-
-
-def create_search_model(namespace: Namespace) -> Model:
-    search_result_inner_model = namespace.model(
-        "SearchResultInner",
-        {
-            "airtable_uid": fields.String(
-                required=True, description="Airtable UID of the record"
-            ),
-            "agency_name": fields.String(description="Name of the agency"),
-            "municipality": fields.String(description="Name of the municipality"),
-            "state_iso": fields.String(description="ISO code of the state"),
-            "data_source_name": fields.String(description="Name of the data source"),
-            "description": fields.String(description="Description of the record"),
-            "record_type": fields.String(description="Type of the record"),
-            "source_url": fields.String(description="URL of the data source"),
-            "record_format": fields.String(description="Format of the record"),
-            "coverage_start": fields.String(description="Coverage start date"),
-            "coverage_end": fields.String(description="Coverage end date"),
-            "agency_supplied": fields.String(
-                description="If the record is supplied by the agency"
-            ),
-            "jurisdiction_type": fields.String(
-                description="Type of jursidiction for agency"
-            ),
-        },
-    )
-
-    search_result_inner_wrapper_model = namespace.model(
-        "SearchResultInnerWrapper",
-        {
-            "count": fields.Integer(
-                required=True,
-                description="Count of SearchResultInnerWrapper items",
-                attribute="count",
-            ),
-            "results": fields.List(
-                fields.Nested(
-                    search_result_inner_model,
-                    description="List of results for the given jurisdiction",
-                )
-            ),
-        },
-    )
-
-    search_result_jurisdictions_wrapper_model = namespace.model(
-        name="SearchResultJurisdictionsWrapper",
-        model={
-            "federal": fields.Nested(
-                search_result_inner_wrapper_model,
-                description="Results for the federal jurisdiction",
-            ),
-            "state": fields.Nested(
-                search_result_inner_wrapper_model,
-                description="Results for the state jurisdiction",
-            ),
-            "county": fields.Nested(
-                search_result_inner_wrapper_model,
-                description="Results for the county jurisdiction",
-            ),
-            "locality": fields.Nested(
-                search_result_inner_wrapper_model,
-                description="Results for the locality jurisdiction",
-            ),
-        },
-    )
-
-    search_result_outer_model = namespace.model(
-        "SearchResultOuter",
-        {
-            "count": fields.Integer(
-                required=True,
-                description="Count of SearchResultInner items",
-                attribute="count",
-            ),
-            "data": fields.Nested(
-                attribute="data",
-                model=search_result_jurisdictions_wrapper_model,
-            ),
-        },
-    )
-
-    return search_result_outer_model
 
 
 def column_permissions_description(

@@ -1,34 +1,31 @@
 from http import HTTPStatus
 
 from config import limiter
-from middleware.access_logic import NO_AUTH_INFO, AccessInfo
-from middleware.decorators import endpoint_info_2
-from middleware.third_party_interaction_logic.callback_flask_sessions_logic import (
-    setup_callback_session,
+from middleware.access_logic import NO_AUTH_INFO, AccessInfoPrimary
+from middleware.decorators import endpoint_info
+from middleware.primary_resource_logic.github_oauth_logic import (
+    login_with_github_wrapper,
 )
-from middleware.enums import CallbackFunctionsEnum
-from middleware.third_party_interaction_logic.callback_oauth_logic import (
-    redirect_to_github_authorization,
-)
+
 from resources.PsycopgResource import PsycopgResource
 from resources.endpoint_schema_config import SchemaConfigs
 from resources.resource_helpers import ResponseInfo
 from utilities.namespace import create_namespace, AppNamespaces
 
-namespace_login_with_github = create_namespace(AppNamespaces.AUTH)
+namespace_login_with_github = create_namespace(AppNamespaces.OAUTH)
 
 
 @namespace_login_with_github.route("/login-with-github")
 class LoginWithGithub(PsycopgResource):
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_login_with_github,
         auth_info=NO_AUTH_INFO,
         schema_config=SchemaConfigs.AUTH_GITHUB_LOGIN,
         response_info=ResponseInfo(
             response_dictionary={
-                HTTPStatus.OK: "Callback response. User logged in.",
-                HTTPStatus.FOUND: "Returns redirect link to OAuth.",
+                HTTPStatus.OK.value: "User logged in.",
+                HTTPStatus.UNAUTHORIZED.value: "Unauthorized. Forbidden or invalid authentication.",
                 HTTPStatus.INTERNAL_SERVER_ERROR: "Internal Server Error.",
             },
         ),
@@ -50,12 +47,12 @@ class LoginWithGithub(PsycopgResource):
         """,
     )
     @limiter.limit("5 per minute")
-    def get(self, access_info: AccessInfo):
+    def post(self, access_info: AccessInfoPrimary):
         """
         Login the user with their Github account
         :return:
         """
-        setup_callback_session(
-            callback_functions_enum=CallbackFunctionsEnum.LOGIN_WITH_GITHUB,
+        return self.run_endpoint(
+            wrapper_function=login_with_github_wrapper,
+            schema_populate_parameters=SchemaConfigs.AUTH_GITHUB_LOGIN.value.get_schema_populate_parameters(),
         )
-        return redirect_to_github_authorization()

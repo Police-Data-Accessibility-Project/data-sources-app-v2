@@ -37,7 +37,14 @@ class PermissionsActionEnum(Enum):
 class AccessTypeEnum(Enum):
     JWT = auto()
     API_KEY = auto()
+    RESET_PASSWORD = auto()
+    VALIDATE_EMAIL = auto()
     NO_AUTH = auto()
+
+
+class OutputFormatEnum(Enum):
+    JSON = "json"
+    CSV = "csv"
 
 
 class Relations(Enum):
@@ -69,6 +76,7 @@ class Relations(Enum):
     LOCATIONS = "locations"
     LOCATIONS_EXPANDED = "locations_expanded"
     USERS = "users"
+    PENDING_USERS = "pending_users"
     DEPENDENT_LOCATIONS = "dependent_locations"
     QUALIFYING_NOTIFICATIONS = "qualifying_notifications"
     USER_PENDING_NOTIFICATIONS = "user_pending_notifications"

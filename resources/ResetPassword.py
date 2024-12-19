@@ -1,27 +1,20 @@
 from flask import Response
 
+from middleware.access_logic import (
+    RESET_PASSWORD_AUTH_INFO,
+    PasswordResetTokenAccessInfo,
+)
+from middleware.decorators import endpoint_info
 from middleware.primary_resource_logic.reset_token_queries import (
     reset_password,
-    ResetPasswordSchema,
-    ResetPasswordDTO,
 )
-from utilities.namespace import create_namespace
+from resources.endpoint_schema_config import SchemaConfigs
+from resources.resource_helpers import ResponseInfo
+from utilities.namespace import create_namespace, AppNamespaces
 
 from resources.PsycopgResource import PsycopgResource, handle_exceptions
-from middleware.schema_and_dto_logic.dynamic_logic.dynamic_schema_documentation_construction import (
-    get_restx_param_documentation,
-)
-from middleware.schema_and_dto_logic.non_dto_dataclasses import SchemaPopulateParameters
 
-namespace_reset_password = create_namespace()
-
-doc_info = get_restx_param_documentation(
-    namespace=namespace_reset_password,
-    schema=ResetPasswordSchema,
-    model_name="ResetPassword",
-)
-
-reset_password_model = doc_info.model
+namespace_reset_password = create_namespace(AppNamespaces.AUTH)
 
 
 @namespace_reset_password.route("/reset-password")
@@ -31,14 +24,16 @@ class ResetPassword(PsycopgResource):
     If the token is valid and not expired, allows the user to set a new password.
     """
 
-    @handle_exceptions
-    @namespace_reset_password.expect(reset_password_model)
-    @namespace_reset_password.response(200, "OK; Password reset successful")
-    @namespace_reset_password.response(500, "Internal server error")
-    @namespace_reset_password.doc(
-        description="Allows a user to reset their password using a valid reset token."
+    @endpoint_info(
+        namespace=namespace_reset_password,
+        auth_info=RESET_PASSWORD_AUTH_INFO,
+        schema_config=SchemaConfigs.RESET_PASSWORD,
+        response_info=ResponseInfo(
+            success_message="Password reset successful",
+        ),
+        description="Allows a user to reset their password using a valid reset token.",
     )
-    def post(self) -> Response:
+    def post(self, access_info: PasswordResetTokenAccessInfo) -> Response:
         """
         Processes a password reset request. Validates the provided reset token and,
         if valid, updates the user's password with the new password provided in the request.
@@ -48,8 +43,6 @@ class ResetPassword(PsycopgResource):
         """
         return self.run_endpoint(
             wrapper_function=reset_password,
-            schema_populate_parameters=SchemaPopulateParameters(
-                schema=ResetPasswordSchema(),
-                dto_class=ResetPasswordDTO,
-            ),
+            schema_populate_parameters=SchemaConfigs.RESET_PASSWORD.value.get_schema_populate_parameters(),
+            access_info=access_info,
         )

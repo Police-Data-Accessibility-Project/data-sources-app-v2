@@ -2,9 +2,11 @@ from dataclasses import dataclass
 from typing import Optional
 
 from marshmallow import Schema, fields, validates_schema, ValidationError
+from pydantic import BaseModel
 
+from middleware.enums import OutputFormatEnum
 from middleware.schema_and_dto_logic.schema_helpers import create_get_many_schema
-from middleware.schema_and_dto_logic.util import get_json_metadata
+from middleware.schema_and_dto_logic.util import get_json_metadata, get_query_metadata
 from utilities.common import get_enums_from_string
 from utilities.enums import RecordCategories, SourceMappingEnum, ParserLocation
 
@@ -16,13 +18,9 @@ def transform_record_categories(value: str) -> Optional[list[RecordCategories]]:
 
 
 class SearchRequestSchema(Schema):
-    state = fields.Str(
-        required=True,
-        metadata={
-            "description": "The state of the search.",
-            "source": SourceMappingEnum.QUERY_ARGS,
-            "location": ParserLocation.QUERY.value,
-        },
+    location_id = fields.Int(
+        required=False,
+        metadata=get_query_metadata("The location ID of the search."),
     )
     record_categories = fields.Str(
         required=False,
@@ -38,29 +36,17 @@ class SearchRequestSchema(Schema):
             "location": ParserLocation.QUERY.value,
         },
     )
-    county = fields.Str(
+    output_format = fields.Enum(
         required=False,
+        enum=OutputFormatEnum,
+        by_value=fields.Str,
+        load_default=OutputFormatEnum.JSON.value,
         metadata={
-            "description": "The county of the search. If empty, all counties for the given state will be searched.",
+            "description": "The output format of the search.",
             "source": SourceMappingEnum.QUERY_ARGS,
             "location": ParserLocation.QUERY.value,
         },
     )
-    locality = fields.Str(
-        required=False,
-        metadata={
-            "description": "The locality of the search. If empty, all localities for the given county will be searched.",
-            "source": SourceMappingEnum.QUERY_ARGS,
-            "location": ParserLocation.QUERY.value,
-        },
-    )
-
-    @validates_schema
-    def validate_location_info(self, data, **kwargs):
-        if data.get("locality") and not data.get("county"):
-            raise ValidationError(
-                "If locality is provided, county must also be provided."
-            )
 
 
 class SearchResultsInnerSchema(Schema):
@@ -74,6 +60,7 @@ class SearchResultsInnerSchema(Schema):
     )
     municipality = fields.Str(
         required=True,
+        allow_none=True,
         metadata=get_json_metadata("The name of the municipality."),
     )
     state_iso = fields.Str(
@@ -170,33 +157,37 @@ class SearchResponseSchema(Schema):
 
 
 class FollowSearchResponseSchema(Schema):
-    state = fields.Str(
+    state_name = fields.Str(
         required=True,
         metadata=get_json_metadata("The state of the search."),
     )
-    county = fields.Str(
+    county_name = fields.Str(
         required=False,
+        allow_none=True,
         metadata=get_json_metadata(
             "The county of the search. If empty, all counties for the given state will be searched."
         ),
     )
-    locality = fields.Str(
+    locality_name = fields.Str(
         required=False,
+        allow_none=True,
         metadata=get_json_metadata(
             "The locality of the search. If empty, all localities for the given county will be searched."
         ),
     )
+    id = fields.Int(
+        required=True,
+        metadata=get_json_metadata("The location ID of the search."),
+    )
 
 
 GetUserFollowedSearchesSchema = create_get_many_schema(
-    data_list_schema=FollowSearchResponseSchema(),
+    data_list_schema=FollowSearchResponseSchema,
     description="The searches that the user follows.",
 )
 
 
-@dataclass
-class SearchRequests:
-    state: str
+class SearchRequestsDTO(BaseModel):
+    location_id: int
     record_categories: Optional[list[RecordCategories]] = None
-    county: Optional[str] = None
-    locality: Optional[str] = None
+    output_format: Optional[OutputFormatEnum] = None
