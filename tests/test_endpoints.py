@@ -10,7 +10,7 @@ import pytest
 from unittest.mock import patch
 
 from flask.testing import FlaskClient
-from flask_restful import Resource
+from flask_restx import Resource
 
 from resources.Agencies import AgenciesByPage, AgenciesById
 from resources.ApiKeyResource import ApiKeyResource, API_KEY_ROUTE
@@ -29,7 +29,6 @@ from resources.DataSources import (
 from resources.HomepageSearchCache import HomepageSearchCache
 from resources.LinkToGithub import LinkToGithub
 from resources.Login import Login
-from resources.LoginWithGithub import LoginWithGithub
 from resources.Permissions import Permissions
 from resources.RefreshSession import RefreshSession
 from resources.RequestResetPassword import RequestResetPassword
@@ -38,7 +37,6 @@ from resources.ResetTokenValidation import ResetTokenValidation
 from resources.Search import Search
 from resources.TypeaheadSuggestions import TypeaheadLocations, TypeaheadAgencies
 from resources.UniqueURLChecker import UniqueURLChecker
-from resources.User import User
 from resources.UserProfile import (
     USER_PROFILE_DATA_REQUEST_ENDPOINT_FULL,
     UserDataRequests,
@@ -84,13 +82,12 @@ def check_method_exists(class_type, client, endpoint, method):
 
 TestParameters = namedtuple("Resource", ["class_type", "endpoint", "allowed_methods"])
 test_parameters = [
-    TestParameters(User, "/user", [POST, PUT]),
-    TestParameters(Login, "/login", [POST]),
-    TestParameters(RefreshSession, "/refresh-session", [POST]),
+    TestParameters(Login, "/auth/login", [POST]),
+    TestParameters(RefreshSession, "/auth/refresh-session", [POST]),
     TestParameters(ApiKeyResource, f"/auth{API_KEY_ROUTE}", [POST]),
-    TestParameters(RequestResetPassword, "/request-reset-password", [POST]),
-    TestParameters(ResetPassword, "/reset-password", [POST]),
-    TestParameters(ResetTokenValidation, "/reset-token-validation", [POST]),
+    TestParameters(RequestResetPassword, "auth/request-reset-password", [POST]),
+    TestParameters(ResetPassword, "/auth/reset-password", [POST]),
+    TestParameters(ResetTokenValidation, "/auth/reset-token-validation", [POST]),
     TestParameters(Archives, "/archives", [GET, PUT]),
     TestParameters(DataSources, "/data-sources", [GET, POST]),
     # This endpoint no longer works because of the other data source endpoint
@@ -115,9 +112,7 @@ test_parameters = [
     TestParameters(Search, "/search/search-location-and-record-type", [GET]),
     TestParameters(TypeaheadLocations, "/typeahead/locations", [GET]),
     TestParameters(Callback, "auth/callback", [GET]),
-    TestParameters(LinkToGithub, "auth/link-to-github", [POST]),
-    TestParameters(LoginWithGithub, "auth/login-with-github", [GET]),
-    TestParameters(Permissions, "auth/permissions", [GET, PUT]),
+    TestParameters(Permissions, "/permissions", [GET, PUT]),
     TestParameters(DataRequests, "/data-requests", [GET, POST]),
     TestParameters(
         DataRequestsById, "/data-requests/<data_request_id>", [GET, PUT, DELETE]

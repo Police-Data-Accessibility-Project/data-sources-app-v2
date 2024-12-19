@@ -8,14 +8,11 @@ from typing import Optional, Any, List, Callable, Union
 
 import psycopg
 import sqlalchemy.exc
-from click.testing import Result
 from dateutil.relativedelta import relativedelta
-from numpy.core.records import record
 from psycopg import sql, Cursor
 from psycopg.rows import dict_row, tuple_row
 from sqlalchemy import select, MetaData, delete, update, insert
 from sqlalchemy.orm import aliased, defaultload, load_only
-from sqlalchemy.schema import Column
 
 from database_client.constants import METADATA_METHOD_NAMES, PAGE_SIZE
 from database_client.db_client_dataclasses import (
@@ -183,23 +180,42 @@ class DatabaseClient:
         )
         if len(results) == 0:
             return None
-        return results[0]["id"]
+        return int(results[0]["id"])
 
-    def set_user_password_digest(self, email: str, password_digest: str):
+    def set_user_password_digest(self, user_id: int, password_digest: str):
         """
         Updates the password digest for a user in the database.
-        :param email:
+        :param user_id:
         :param password_digest:
         :return:
         """
         self._update_entry_in_table(
             table_name="users",
-            entry_id=email,
+            entry_id=user_id,
             column_edit_mappings={"password_digest": password_digest},
-            id_column_name="email",
+            id_column_name="id",
         )
 
-    ResetTokenInfo = namedtuple("ResetTokenInfo", ["id", "email", "create_date"])
+    def get_password_digest(self, user_id: int) -> str:
+        return self._select_single_entry_from_relation(
+            relation_name=Relations.USERS.value,
+            columns=["password_digest"],
+            where_mappings={
+                "id": user_id,
+            },
+        )["password_digest"]
+
+    def password_digest_matches(self, user_id: int, password_digest: str) -> bool:
+        db_password_digest = self._select_single_entry_from_relation(
+            relation_name=Relations.USERS.value,
+            columns=["password_digest"],
+            where_mappings={
+                "id": user_id,
+            },
+        )["password_digest"]
+        return password_digest == db_password_digest
+
+    ResetTokenInfo = namedtuple("ResetTokenInfo", ["id", "user_id", "create_date"])
 
     def get_reset_token_info(self, token: str) -> Optional[ResetTokenInfo]:
         """
@@ -210,17 +226,17 @@ class DatabaseClient:
         """
         results = self._select_from_relation(
             relation_name="reset_tokens",
-            columns=["id", "email", "create_date"],
+            columns=["id", "user_id", "create_date"],
             where_mappings=[WhereMapping(column="token", value=token)],
         )
         if len(results) == 0:
             return None
         row = results[0]
         return self.ResetTokenInfo(
-            id=row["id"], email=row["email"], create_date=row["create_date"]
+            id=row["id"], user_id=row["user_id"], create_date=row["create_date"]
         )
 
-    def add_reset_token(self, email: str, token: str):
+    def add_reset_token(self, user_id: int, token: str):
         """
         Inserts a new reset token into the database for a specified email.
 
@@ -229,11 +245,11 @@ class DatabaseClient:
         """
         self._create_entry_in_table(
             table_name="reset_tokens",
-            column_value_mappings={"email": email, "token": token},
+            column_value_mappings={"user_id": user_id, "token": token},
         )
 
     @cursor_manager()
-    def delete_reset_token(self, email: str, token: str):
+    def delete_reset_token(self, user_id: int, token: str):
         """
         Deletes a reset token from the database for a specified email.
 
@@ -241,8 +257,8 @@ class DatabaseClient:
         :param token: The reset token to delete.
         """
         query = sql.SQL(
-            "delete from reset_tokens where email = {} and token = {}"
-        ).format(sql.Literal(email), sql.Literal(token))
+            "delete from reset_tokens where user_id = {} and token = {}"
+        ).format(sql.Literal(user_id), sql.Literal(token))
         self.cursor.execute(query)
 
     UserIdentifiers = namedtuple("UserIdentifiers", ["id", "email"])
@@ -303,7 +319,7 @@ class DatabaseClient:
                 DATA_SOURCES.NAME,
                 AGENCIES.ID AS AGENCY_ID,
                 AGENCIES.SUBMITTED_NAME AS AGENCY_NAME,
-                AGENCIES.STATE_ISO,
+                LE.STATE_ISO,
                 LE.LOCALITY_NAME AS MUNICIPALITY,
                 LE.COUNTY_NAME,
                 RT.NAME RECORD_TYPE,
@@ -317,6 +333,8 @@ class DatabaseClient:
                 INNER JOIN RECORD_TYPES RT ON RT.ID = DATA_SOURCES.RECORD_TYPE_ID
             WHERE
                 DATA_SOURCES.APPROVAL_STATUS = 'approved'
+                AND LAT is not null
+				AND LNG is not null
         """
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
@@ -506,10 +524,8 @@ class DatabaseClient:
     @cursor_manager()
     def search_with_location_and_record_type(
         self,
-        state: str,
+        location_id: int,
         record_categories: Optional[list[RecordCategories]] = None,
-        county: Optional[str] = None,
-        locality: Optional[str] = None,
     ) -> List[dict]:
         """
         Searches for data sources in the database.
@@ -520,11 +536,10 @@ class DatabaseClient:
         :param locality: The locality to search for data sources in. If None, all data sources will be searched for.
         :return: A list of dictionaries.
         """
+        optional_kwargs = {}
         query = DynamicQueryConstructor.create_search_query(
-            state=state,
+            location_id=location_id,
             record_categories=record_categories,
-            county=county,
-            locality=locality,
         )
         self.cursor.execute(query)
         return self.cursor.fetchall()
@@ -552,7 +567,7 @@ class DatabaseClient:
         )
 
     @cursor_manager()
-    def add_user_permission(self, user_email: str, permission: PermissionsEnum):
+    def add_user_permission(self, user_id: str, permission: PermissionsEnum):
         """
         Adds a permission to a user.
 
@@ -563,32 +578,32 @@ class DatabaseClient:
             """
             INSERT INTO user_permissions (user_id, permission_id) 
             VALUES (
-                (SELECT id FROM users WHERE email = {email}), 
+                {id}, 
                 (SELECT permission_id FROM permissions WHERE permission_name = {permission})
             );
         """
         ).format(
-            email=sql.Literal(user_email),
+            id=sql.Literal(user_id),
             permission=sql.Literal(permission.value),
         )
         self.cursor.execute(query)
 
     @cursor_manager()
-    def remove_user_permission(self, user_email: str, permission: PermissionsEnum):
+    def remove_user_permission(self, user_id: str, permission: PermissionsEnum):
         query = sql.SQL(
             """
             DELETE FROM user_permissions
-            WHERE user_id = (SELECT id FROM users WHERE email = {email})
+            WHERE user_id = {user_id}
             AND permission_id = (SELECT permission_id FROM permissions WHERE permission_name = {permission});
         """
         ).format(
-            email=sql.Literal(user_email),
+            user_id=sql.Literal(user_id),
             permission=sql.Literal(permission.value),
         )
         self.cursor.execute(query)
 
     @cursor_manager()
-    def get_user_permissions(self, user_id: str) -> List[PermissionsEnum]:
+    def get_user_permissions(self, user_id: int) -> List[PermissionsEnum]:
         query = sql.SQL(
             """
             SELECT p.permission_name
@@ -720,10 +735,6 @@ class DatabaseClient:
             statement = statement.returning(column)
         result = self.session.execute(statement)
 
-        # query = DynamicQueryConstructor.create_insert_query(
-        #     table_name, column_value_mappings, column_to_return
-        # )
-        # self.cursor.execute(query)
         if column_to_return is not None:
             return result.fetchone()[0]
         return None
@@ -815,13 +826,20 @@ class DatabaseClient:
         )
         raw_results = self.session.execute(query()).mappings().unique().all()
         results = self._process_results(
-            build_metadata, raw_results, relation_name, subquery_parameters
+            build_metadata=build_metadata,
+            raw_results=raw_results,
+            relation_name=relation_name,
+            subquery_parameters=subquery_parameters,
         )
 
         return results
 
     def _process_results(
-        self, build_metadata: bool, raw_results, relation_name, subquery_parameters
+        self,
+        build_metadata: bool,
+        raw_results: list,
+        relation_name: str,
+        subquery_parameters: Optional[list[SubqueryParameters]],
     ):
         table_key = self._build_table_key_if_results(raw_results)
         results = self._dictify_results(raw_results, subquery_parameters, table_key)
@@ -848,20 +866,34 @@ class DatabaseClient:
 
     def _dictify_results(
         self,
-        raw_results,
+        raw_results: list,
         subquery_parameters: Optional[list[SubqueryParameters]],
-        table_key,
+        table_key: str,
     ):
         if subquery_parameters and table_key:
             # Calls models.Base.to_dict() method
-            results = [
-                result[table_key].to_dict(subquery_parameters) for result in raw_results
-            ]
+            results = []
+            for result in raw_results:
+                val: dict = result[table_key].to_dict(subquery_parameters)
+                self._alias_subqueries(subquery_parameters, val)
+                results.append(val)
         else:
             results = [dict(result) for result in raw_results]
         return results
 
-    def _build_table_key_if_results(self, raw_results):
+    def _alias_subqueries(self, subquery_parameters, val: dict):
+        for sp in subquery_parameters:
+            if sp.alias_mappings is None:
+                continue
+            for entry in val[sp.linking_column]:
+                keys = list(entry.keys())
+                for key in keys:
+                    if key in sp.alias_mappings:
+                        alias = sp.alias_mappings[key]
+                        entry[alias] = entry[key]
+                        del entry[key]
+
+    def _build_table_key_if_results(self, raw_results: list) -> str:
         table_key = ""
         if len(raw_results) > 0:
             table_key = [key for key in raw_results[0].keys()][0]
@@ -876,7 +908,7 @@ class DatabaseClient:
     )
 
     get_data_sources = partialmethod(
-        _select_from_relation, relation_name=Relations.DATA_SOURCES.value
+        _select_from_relation, relation_name=Relations.DATA_SOURCES_EXPANDED.value
     )
 
     get_request_source_relations = partialmethod(
@@ -1106,7 +1138,6 @@ class DatabaseClient:
                 where_mappings=WhereMapping.from_dict(column_value_mappings),
             )[0][column_to_return]
 
-    @session_manager
     def get_linked_rows(
         self,
         link_table: Relations,
@@ -1117,31 +1148,51 @@ class DatabaseClient:
         linked_relation_linking_column: str,
         columns_to_retrieve: list[str],
         alias_mappings: Optional[dict[str, str]] = None,
+        build_metadata=False,
+        subquery_parameters: Optional[list[SubqueryParameters]] = [],
     ):
         LinkTable = SQL_ALCHEMY_TABLE_REFERENCE[link_table.value]
         LinkedRelation = SQL_ALCHEMY_TABLE_REFERENCE[linked_relation.value]
 
-        # TODO: Some of this logic may better fit in DynamicQueryConstructor
-        column_references = self._build_column_references(
-            LinkedRelation, alias_mappings, columns_to_retrieve
+        # Get ids via linked table
+        link_results = self._select_from_relation(
+            relation_name=link_table.value,
+            columns=[right_link_column],
+            where_mappings={left_link_column: left_id},
         )
-
-        query_with_select = self.session.query(*column_references)
-        query_with_join = query_with_select.join(
-            LinkTable,
-            getattr(LinkTable, right_link_column)
-            == getattr(LinkedRelation, linked_relation_linking_column),
-        )
-        query_with_filter = query_with_join.filter(
-            getattr(LinkTable, left_link_column) == left_id
-        )
-
-        dict_results = [dict(result._mapping) for result in query_with_filter.all()]
-
-        return ResultFormatter.format_with_metadata(
-            data=dict_results,
+        link_ids = [result[right_link_column] for result in link_results]
+        linked_results = self._select_from_relation(
             relation_name=linked_relation.value,
+            columns=columns_to_retrieve,
+            alias_mappings=alias_mappings,
+            where_mappings={linked_relation_linking_column: link_ids},
+            build_metadata=build_metadata,
+            subquery_parameters=subquery_parameters,
         )
+        return linked_results
+
+        #
+        # # TODO: Some of this logic may better fit in DynamicQueryConstructor
+        # column_references = self._build_column_references(
+        #     LinkedRelation, alias_mappings, columns_to_retrieve
+        # )
+        #
+        # query_with_select = self.session.query(*column_references)
+        # query_with_join = query_with_select.join(
+        #     LinkTable,
+        #     getattr(LinkTable, right_link_column)
+        #     == getattr(LinkedRelation, linked_relation_linking_column),
+        # )
+        # query_with_filter = query_with_join.filter(
+        #     getattr(LinkTable, left_link_column) == left_id
+        # )
+        #
+        # dict_results = [dict(result._mapping) for result in query_with_filter.all()]
+        #
+        # return ResultFormatter.format_with_metadata(
+        #     data=dict_results,
+        #     relation_name=linked_relation.value,
+        # )
 
     def _build_column_references(
         self, LinkedRelation, alias_mappings, columns_to_retrieve
@@ -1161,12 +1212,8 @@ class DatabaseClient:
         right_link_column="location_id",
         linked_relation=Relations.LOCATIONS_EXPANDED,
         linked_relation_linking_column="id",
-        columns_to_retrieve=["state_name", "county_name", "locality_name"],
-        alias_mappings={
-            "state_name": "state",
-            "county_name": "county",
-            "locality_name": "locality",
-        },
+        columns_to_retrieve=["state_name", "county_name", "locality_name", "id"],
+        build_metadata=True,
     )
 
     DataRequestIssueInfo = namedtuple(
@@ -1364,3 +1411,76 @@ class DatabaseClient:
             columns=["id"],
             where_mappings={"name": record_type_name},
         )["id"]
+
+    def get_user_external_accounts(self, user_id: int):
+        raw_results = self._select_from_relation(
+            relation_name=Relations.EXTERNAL_ACCOUNTS.value,
+            columns=["account_type", "account_identifier"],
+            where_mappings={"user_id": user_id},
+        )
+        return {row["account_type"]: row["account_identifier"] for row in raw_results}
+
+    def get_user_email(self, user_id: int) -> str:
+        return self._select_single_entry_from_relation(
+            relation_name=Relations.USERS.value,
+            columns=["email"],
+            where_mappings={"id": user_id},
+        )["email"]
+
+    def pending_user_exists(self, email: str) -> bool:
+        results = self._select_from_relation(
+            relation_name=Relations.PENDING_USERS.value,
+            columns=["id"],
+            where_mappings={"email": email},
+        )
+        return len(results) > 0
+
+    def create_pending_user(
+        self, email: str, password_digest: str, validation_token: str
+    ) -> str:
+        return self._create_entry_in_table(
+            table_name=Relations.PENDING_USERS.value,
+            column_value_mappings={
+                "email": email,
+                "password_digest": password_digest,
+                "validation_token": validation_token,
+            },
+        )
+
+    def update_pending_user_validation_token(self, email: str, validation_token: str):
+        self._update_entry_in_table(
+            table_name=Relations.PENDING_USERS.value,
+            entry_id=email,
+            column_edit_mappings={"validation_token": validation_token},
+            id_column_name="email",
+        )
+
+    def get_pending_user_with_token(self, validation_token: str) -> Optional[dict]:
+        result = self._select_single_entry_from_relation(
+            relation_name=Relations.PENDING_USERS.value,
+            columns=["email", "password_digest"],
+            where_mappings={"validation_token": validation_token},
+        )
+        return result
+
+    def delete_pending_user(self, email: str):
+        self._delete_from_table(
+            table_name=Relations.PENDING_USERS.value,
+            id_column_value=email,
+            id_column_name="email",
+        )
+
+    def get_location_by_id(self, location_id: int):
+        return self._select_single_entry_from_relation(
+            relation_name=Relations.LOCATIONS_EXPANDED.value,
+            columns=[
+                "state_name",
+                "state_iso",
+                "county_name",
+                "county_fips",
+                "locality_name",
+                "type",
+                "id",
+            ],
+            where_mappings={"id": location_id},
+        )

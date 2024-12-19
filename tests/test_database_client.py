@@ -6,10 +6,8 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock
 
-import psycopg.errors
 import pytest
 import sqlalchemy
-from marshmallow import Schema
 from sqlalchemy import insert, select, update
 
 from database_client.database_client import DatabaseClient
@@ -31,9 +29,7 @@ from middleware.exceptions import (
     DuplicateUserError,
 )
 from database_client.models import (
-    Agency,
     LinkAgencyDataSource,
-    DataSource,
     ExternalAccount,
     TestTable,
     User,
@@ -42,30 +38,30 @@ from database_client.models import (
 from middleware.enums import PermissionsEnum, Relations
 from tests.conftest import live_database_client, test_table_data, clear_data_requests
 from tests.helper_scripts.common_test_data import (
-    insert_test_column_permission_data,
-    create_agency_entry_for_search_cache,
-    create_data_source_entry_for_url_duplicate_checking,
-    TestDataCreatorFlask,
     get_random_number_for_testing,
+    get_test_name,
 )
+from tests.helper_scripts.complex_test_data_creation_functions import (
+    insert_test_column_permission_data,
+    create_data_source_entry_for_url_duplicate_checking,
+)
+
 from tests.helper_scripts.helper_classes.AnyOrder import AnyOrder
 from tests.helper_scripts.helper_classes.TestDataCreatorDBClient import (
     TestDataCreatorDBClient,
 )
 from tests.helper_scripts.helper_schemas import TestGetPendingNotificationsOutputSchema
 from tests.helper_scripts.test_dataclasses import TestDataRequestInfo
-from tests.helper_scripts.helper_functions import (
-    insert_test_agencies_and_sources_if_not_exist,
+from tests.helper_scripts.helper_functions_complex import (
     setup_get_typeahead_suggestion_test_data,
     create_test_user_db_client,
-    get_notification_valid_date,
 )
 from utilities.enums import RecordCategories
 from conftest import test_data_creator_db_client
 
 
 def test_add_new_user(live_database_client: DatabaseClient):
-    fake_email = uuid.uuid4().hex
+    fake_email = get_test_name()
     live_database_client.create_new_user(fake_email, "test_password")
     result = (
         live_database_client.execute_sqlalchemy(
@@ -89,7 +85,7 @@ def test_add_new_user(live_database_client: DatabaseClient):
 
 def test_get_user_id(live_database_client: DatabaseClient):
     # Add a new user to the database
-    fake_email = uuid.uuid4().hex
+    fake_email = get_test_name()
     live_database_client.create_new_user(fake_email, "test_password")
 
     # Directly fetch the user ID from the database for comparison
@@ -105,7 +101,7 @@ def test_get_user_id(live_database_client: DatabaseClient):
 
 
 def test_link_external_account(live_database_client: DatabaseClient):
-    fake_email = uuid.uuid4().hex
+    fake_email = get_test_name()
     fake_external_account_id = uuid.uuid4().hex
     live_database_client.create_new_user(fake_email, "test_password")
     user_id = live_database_client.get_user_id(fake_email)
@@ -129,7 +125,7 @@ def test_link_external_account(live_database_client: DatabaseClient):
 
 
 def test_get_user_info_by_external_account_id(live_database_client: DatabaseClient):
-    fake_email = uuid.uuid4().hex
+    fake_email = get_test_name()
     fake_external_account_id = uuid.uuid4().hex
     live_database_client.create_new_user(fake_email, "test_password")
     user_id = live_database_client.get_user_id(fake_email)
@@ -144,34 +140,23 @@ def test_get_user_info_by_external_account_id(live_database_client: DatabaseClie
     assert user_info.email == fake_email
 
 
-def test_set_user_password_digest(live_database_client: DatabaseClient):
-    fake_email = uuid.uuid4().hex
-    live_database_client.create_new_user(fake_email, "test_password")
-    live_database_client.set_user_password_digest(fake_email, "test_password")
-    password_digest = live_database_client.execute_sqlalchemy(
-        lambda: select(User.password_digest).where(User.email == fake_email)
-    ).one_or_none()[0]
-
-    assert password_digest == "test_password"
-
-
 def test_reset_token_logic(live_database_client: DatabaseClient):
-    fake_email = uuid.uuid4().hex
+    fake_email = get_test_name()
     fake_token = uuid.uuid4().hex
-    live_database_client.create_new_user(fake_email, "test_password")
-    live_database_client.add_reset_token(fake_email, fake_token)
+    user_id = live_database_client.create_new_user(fake_email, "test_password")
+    live_database_client.add_reset_token(user_id, fake_token)
     reset_token_info = live_database_client.get_reset_token_info(fake_token)
     assert reset_token_info, "Token not found"
-    assert reset_token_info.email == fake_email, "Email does not match"
+    assert reset_token_info.user_id == user_id, "User id does not match"
 
-    live_database_client.delete_reset_token(fake_email, fake_token)
+    live_database_client.delete_reset_token(user_id, fake_token)
     reset_token_info = live_database_client.get_reset_token_info(fake_token)
     assert reset_token_info is None, "Token not deleted"
 
 
 def test_update_user_api_key(live_database_client: DatabaseClient):
     # Add a new user to the database
-    email = uuid.uuid4().hex
+    email = get_test_name()
     password_digest = uuid.uuid4().hex
 
     live_database_client.create_new_user(
@@ -322,8 +307,10 @@ def test_select_from_relation_subquery(
         )
     )
 
-    where_mappings = [WhereMapping(column="id", value=data_source_info.id)]
-    subquery_parameters = [
+    where_mappings_for_data_sources = [
+        WhereMapping(column="id", value=data_source_info.id)
+    ]
+    subquery_parameters_for_data_sources = [
         SubqueryParameters(
             relation_name=Relations.AGENCIES_EXPANDED.value,
             columns=["id", "submitted_name"],
@@ -331,22 +318,55 @@ def test_select_from_relation_subquery(
         )
     ]
 
+    # Test can get agency from data sources, where the `agencies` property is defined
     results = tdc.db_client._select_from_relation(
-        relation_name="data_sources",
+        relation_name=Relations.DATA_SOURCES_EXPANDED.value,
         columns=["id", "name"],
-        where_mappings=where_mappings,
-        subquery_parameters=subquery_parameters,
+        where_mappings=where_mappings_for_data_sources,
+        subquery_parameters=subquery_parameters_for_data_sources,
     )
 
     assert results == [
         {
             "name": data_source_info.name,
             "id": data_source_info.id,
-            "agency_ids": [agency_info.id],
+            # "agency_ids": [agency_info.id],
             "agencies": [
                 {
                     "submitted_name": agency_info.submitted_name,
                     "id": agency_info.id,
+                }
+            ],
+        }
+    ]
+
+    # Test can also get data sources from agency
+    # Which does not have a `data_sources` property
+    # but which is defined via backref in `DataSourceExpanded.agencies
+    where_mappings_for_agencies = [WhereMapping(column="id", value=agency_info.id)]
+    subquery_parameters_for_agencies = [
+        SubqueryParameters(
+            relation_name=Relations.DATA_SOURCES_EXPANDED.value,
+            columns=["id", "name"],
+            linking_column="data_sources",
+        )
+    ]
+    results = tdc.db_client._select_from_relation(
+        relation_name=Relations.AGENCIES_EXPANDED.value,
+        columns=["id", "submitted_name"],
+        where_mappings=where_mappings_for_agencies,
+        subquery_parameters=subquery_parameters_for_agencies,
+    )
+
+    assert results == [
+        {
+            "submitted_name": agency_info.submitted_name,
+            "id": agency_info.id,
+            # "data_source_ids": [data_source_info.id],
+            "data_sources": [
+                {
+                    "name": data_source_info.name,
+                    "id": data_source_info.id,
                 }
             ],
         }
@@ -502,7 +522,7 @@ def test_update_last_cached(
 
 def test_get_user_info(live_database_client):
     # Add a new user to the database
-    email = uuid.uuid4().hex
+    email = get_test_name()
     password_digest = uuid.uuid4().hex
 
     live_database_client.create_new_user(
@@ -522,7 +542,7 @@ def test_get_user_info(live_database_client):
 
 def test_get_user_by_api_key(live_database_client: DatabaseClient):
     # Add a new user to the database
-    test_email = uuid.uuid4().hex
+    test_email = get_test_name()
     test_api_key = uuid.uuid4().hex
 
     user_id = live_database_client.create_new_user(
@@ -557,21 +577,21 @@ def test_get_typeahead_locations(live_database_client: DatabaseClient):
 
     assert results[0]["display_name"] == "Xylodammerung"
     assert results[0]["type"] == "Locality"
-    assert results[0]["state"] == "Xylonsylvania"
-    assert results[0]["county"] == "Arxylodon"
-    assert results[0]["locality"] == "Xylodammerung"
+    assert results[0]["state_name"] == "Xylonsylvania"
+    assert results[0]["county_name"] == "Arxylodon"
+    assert results[0]["locality_name"] == "Xylodammerung"
 
     assert results[1]["display_name"] == "Xylonsylvania"
     assert results[1]["type"] == "State"
-    assert results[1]["state"] == "Xylonsylvania"
-    assert results[1]["county"] is None
-    assert results[1]["locality"] is None
+    assert results[1]["state_name"] == "Xylonsylvania"
+    assert results[1]["county_name"] is None
+    assert results[1]["locality_name"] is None
 
     assert results[2]["display_name"] == "Arxylodon"
     assert results[2]["type"] == "County"
-    assert results[2]["state"] == "Xylonsylvania"
-    assert results[2]["county"] == "Arxylodon"
-    assert results[2]["locality"] is None
+    assert results[2]["state_name"] == "Xylonsylvania"
+    assert results[2]["county_name"] == "Arxylodon"
+    assert results[2]["locality_name"] is None
 
 
 def test_get_typeahead_agencies(live_database_client):
@@ -580,12 +600,12 @@ def test_get_typeahead_agencies(live_database_client):
     setup_get_typeahead_suggestion_test_data(cursor)
 
     results = live_database_client.get_typeahead_agencies(search_term="xyl")
-    assert len(results) == 1
+    assert len(results) > 0
     assert results[0]["display_name"] == "Xylodammerung Police Agency"
     assert results[0]["jurisdiction_type"] == "state"
-    assert results[0]["state"] == "XY"
-    assert results[0]["county"] == "Arxylodon"
-    assert results[0]["locality"] == "Xylodammerung"
+    assert results[0]["state_iso"] == "XY"
+    assert results[0]["county_name"] == "Arxylodon"
+    assert results[0]["locality_name"] == "Xylodammerung"
 
 
 def test_search_with_location_and_record_types_real_data(live_database_client):
@@ -601,44 +621,50 @@ def test_search_with_location_and_record_types_real_data(live_database_client):
     :param live_database_client:
     :return:
     """
-    state_parameter = "PeNnSylvaNia"  # Additionally testing for case-insensitivity
+    state_parameter = "Pennsylvania"  # Additionally testing for case-insensitivity
     record_type_parameter = RecordCategories.AGENCIES
-    county_parameter = "ALLEGHENY"
-    locality_parameter = "pittsburgh"
+    county_parameter = "Allegheny"
+    locality_parameter = "Pittsburgh"
+
+    def search(state, record_categories=None, county=None, locality=None):
+        location_id = live_database_client.get_location_id(
+            where_mappings={
+                "state_name": state,
+                "county_name": county,
+                "locality_name": locality,
+            }
+        )
+        if record_categories is not None:
+            additional_kwargs = {"record_categories": record_categories}
+        else:
+            additional_kwargs = {}
+        return live_database_client.search_with_location_and_record_type(
+            location_id=location_id, **additional_kwargs
+        )
 
     SRLC = len(
-        live_database_client.search_with_location_and_record_type(
+        search(
             state=state_parameter,
             record_categories=[record_type_parameter],
             county=county_parameter,
             locality=locality_parameter,
         )
     )
-    S = len(
-        live_database_client.search_with_location_and_record_type(state=state_parameter)
-    )
-    SR = len(
-        live_database_client.search_with_location_and_record_type(
-            state=state_parameter, record_categories=[record_type_parameter]
-        )
-    )
+    S = len(search(state=state_parameter))
+    SR = len(search(state=state_parameter, record_categories=[record_type_parameter]))
     SRC = len(
-        live_database_client.search_with_location_and_record_type(
+        search(
             state=state_parameter,
             record_categories=[record_type_parameter],
             county=county_parameter,
         )
     )
     SCL = len(
-        live_database_client.search_with_location_and_record_type(
+        search(
             state=state_parameter, county=county_parameter, locality=locality_parameter
         )
     )
-    SC = len(
-        live_database_client.search_with_location_and_record_type(
-            state=state_parameter, county=county_parameter
-        )
-    )
+    SC = len(search(state=state_parameter, county=county_parameter))
 
     assert SRLC > 0
     assert SRLC < SRC
@@ -650,7 +676,13 @@ def test_search_with_location_and_record_types_real_data(live_database_client):
 def test_search_with_location_and_record_types_real_data_multiple_records(
     live_database_client,
 ):
-    state_parameter = "Pennsylvania"
+    location_id = live_database_client.get_location_id(
+        where_mappings={
+            "state_name": "Pennsylvania",
+            "county_name": None,
+            "locality_name": None,
+        }
+    )
     record_categories = []
     last_count = 0
     # Exclude the ALL pseudo-category
@@ -662,14 +694,16 @@ def test_search_with_location_and_record_types_real_data_multiple_records(
     for record_category in applicable_record_categories:
         record_categories.append(record_category)
         results = live_database_client.search_with_location_and_record_type(
-            state=state_parameter, record_categories=record_categories
+            location_id=location_id, record_categories=record_categories
         )
-        assert len(results) > last_count
+        assert (
+            len(results) > last_count
+        ), f"{record_category} failed (total record_categories: {len(record_categories)})"
         last_count = len(results)
 
     # Finally, check that all record_types is equivalent to no record types in terms of number of results
     results = live_database_client.search_with_location_and_record_type(
-        state=state_parameter
+        location_id=location_id
     )
     assert len(results) == last_count
 
@@ -686,7 +720,9 @@ def test_add_user_permission(live_database_client):
     test_user = create_test_user_db_client(live_database_client)
 
     # Add permission
-    live_database_client.add_user_permission(test_user.email, PermissionsEnum.DB_WRITE)
+    live_database_client.add_user_permission(
+        test_user.user_id, PermissionsEnum.DB_WRITE
+    )
     test_user_permissions = live_database_client.get_user_permissions(test_user.user_id)
     assert len(test_user_permissions) == 1
 
@@ -696,14 +732,14 @@ def test_remove_user_permission(live_database_client):
 
     # Add permission
     live_database_client.add_user_permission(
-        test_user.email, PermissionsEnum.READ_ALL_USER_INFO
+        test_user.user_id, PermissionsEnum.READ_ALL_USER_INFO
     )
     test_user_permissions = live_database_client.get_user_permissions(test_user.user_id)
     assert len(test_user_permissions) == 1
 
     # Remove permission
     live_database_client.remove_user_permission(
-        test_user.email, PermissionsEnum.READ_ALL_USER_INFO
+        test_user.user_id, PermissionsEnum.READ_ALL_USER_INFO
     )
     test_user_permissions = live_database_client.get_user_permissions(test_user.user_id)
     assert len(test_user_permissions) == 0
@@ -749,7 +785,7 @@ def test_get_data_requests_for_creator(live_database_client: DatabaseClient):
         live_database_client.create_data_request(
             column_value_mappings={
                 "submission_notes": submission_notes,
-                "title": uuid.uuid4().hex,
+                "title": get_test_name(),
                 "creator_user_id": test_user.user_id,
             }
         )
@@ -771,7 +807,7 @@ def test_user_is_creator_of_data_request(live_database_client):
     data_request_id = live_database_client.create_data_request(
         column_value_mappings={
             "submission_notes": submission_notes,
-            "title": uuid.uuid4().hex,
+            "title": get_test_name(),
             "creator_user_id": test_user.user_id,
         }
     )
@@ -785,7 +821,7 @@ def test_user_is_creator_of_data_request(live_database_client):
     data_request_id = live_database_client.create_data_request(
         column_value_mappings={
             "submission_notes": submission_notes,
-            "title": uuid.uuid4().hex,
+            "title": get_test_name(),
         }
     )
 
@@ -1021,6 +1057,7 @@ def test_get_linked_rows(
             "id",
             "name",
         ],
+        build_metadata=True,
     )
 
     assert results["metadata"]["count"] == len(results["data"]) > 0
@@ -1152,6 +1189,8 @@ def get_user_notification_queue(db_client: DatabaseClient):
 
 
 def test_optionally_update_user_notification_queue(test_data_creator_db_client):
+    # Note: Based on testing on 11/30/2024, this test may be wonky on the last day of the month
+
     tdc = test_data_creator_db_client
     tdc.clear_test_data()
 

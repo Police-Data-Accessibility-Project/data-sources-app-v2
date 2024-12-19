@@ -7,10 +7,15 @@
 <script setup>
 import debounce from 'lodash/debounce';
 import { useAuthStore } from '@/stores/auth';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import { useUserStore } from '@/stores/user';
+import { refreshTokens, signOut } from '@/api/auth';
 
 const route = useRoute();
+const router = useRouter();
+
 const auth = useAuthStore();
+const user = useUserStore();
 
 // Debounce func for performance
 const refreshAuth = debounce(handleAuthRefresh, 350, { leading: true });
@@ -29,16 +34,20 @@ const handlers = {
 };
 
 function handleAuthRefresh() {
-	const now = Date.now();
-	const difference = auth.tokens.accessToken.expires - now;
+	const now = new Date().getTime();
+	const differenceFromAccess = auth.tokens.accessToken.expires - now;
+	const isExpiredAccess = differenceFromAccess <= 0;
+	const shouldRefresh =
+		differenceFromAccess <= 60 * 1000 && auth.isAuthenticated();
+	const shouldLogout = isExpiredAccess && !!user.id;
 
-	// User's token is about to expire, update it.
-	if (difference <= 60 * 1000 && difference > 0) {
-		return auth.refreshAccessToken();
-		// User's token is expired, log out.
-	} else if (difference <= 0 && auth.userId) {
-		auth.redirectTo = route;
-		return auth.logout(route);
-	}
+	// User's token is about to expire, so we refresh it.
+	if (shouldRefresh) {
+		return refreshTokens();
+		// User's tokens are all expired, log out.
+	} else if (shouldLogout) {
+		signOut();
+		if (route?.meta?.auth) router.replace('/sign-in');
+	} else return;
 }
 </script>

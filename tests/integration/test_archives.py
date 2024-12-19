@@ -1,24 +1,12 @@
 """Integration tests for /archives endpoint"""
 
 import datetime
-from http import HTTPStatus
 import json
-
-import psycopg
-
-from database_client.database_client import DatabaseClient
-from middleware.enums import PermissionsEnum
-from tests.conftest import dev_db_client, flask_client_with_db, test_user_admin
-from tests.helper_scripts.common_test_data import TestDataCreatorFlask
-from tests.helper_scripts.helper_functions import (
-    create_test_user_api,
-    create_api_key,
-    insert_test_data_source,
-    create_test_user_setup,
-    create_test_user_setup_db_client,
+from tests.helper_scripts.helper_classes.TestDataCreatorFlask import (
+    TestDataCreatorFlask,
 )
+
 from tests.helper_scripts.run_and_validate_request import run_and_validate_request
-from tests.helper_scripts.simple_result_validators import check_response_status
 from conftest import test_data_creator_flask, monkeysession
 
 ENDPOINT = "/api/archives"
@@ -44,14 +32,14 @@ def test_archives_get(test_data_creator_flask: TestDataCreatorFlask):
 def test_archives_put(
     test_data_creator_flask: TestDataCreatorFlask,
 ):
-    """
+    """tes
     Test that PUT call to /archives endpoint successfully updates the data source with last_cached and broken_source_url_as_of fields
     """
     tdc = test_data_creator_flask
     data_source_id = tdc.data_source().id
     last_cached = datetime.datetime(year=2020, month=3, day=4)
-    broken_as_of = datetime.date(year=1993, month=11, day=13)
     test_user_admin = tdc.get_admin_tus()
+
     test_user_admin.jwt_authorization_header["Content-Type"] = "application/json"
     run_and_validate_request(
         flask_client=tdc.flask_client,
@@ -62,7 +50,6 @@ def test_archives_put(
             {
                 "id": data_source_id,
                 "last_cached": str(last_cached),
-                "broken_source_url_as_of": str(broken_as_of),
             }
         ),
     )
@@ -77,4 +64,4 @@ def test_archives_put(
         vars=(int(data_source_id),),
     )
     assert row[0]["last_cached"] == last_cached
-    assert row[0]["broken_source_url_as_of"] == broken_as_of
+    assert row[0]["broken_source_url_as_of"] is None

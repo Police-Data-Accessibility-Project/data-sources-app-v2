@@ -1,9 +1,11 @@
 from flask import Response
 
+from config import limiter
 from middleware.access_logic import (
-    AccessInfo,
+    AccessInfoPrimary,
     WRITE_ONLY_AUTH_INFO,
     GET_AUTH_INFO,
+    STANDARD_JWT_AUTH_INFO,
 )
 from middleware.schema_and_dto_logic.common_schemas_and_dtos import (
     EntryCreateUpdateRequestDTO,
@@ -13,7 +15,6 @@ from middleware.schema_and_dto_logic.common_schemas_and_dtos import (
 )
 from middleware.decorators import (
     endpoint_info,
-    endpoint_info_2,
 )
 from middleware.primary_resource_logic.data_sources_logic import (
     get_data_sources_wrapper,
@@ -27,12 +28,11 @@ from middleware.primary_resource_logic.data_sources_logic import (
     get_data_source_related_agencies,
 )
 
-from middleware.schema_and_dto_logic.primary_resource_schemas.data_sources_schemas import (
+from middleware.schema_and_dto_logic.primary_resource_schemas.data_sources_advanced_schemas import (
     DataSourcesGetManyRequestSchema,
 )
 from resources.endpoint_schema_config import SchemaConfigs
 from resources.resource_helpers import (
-    create_response_dictionary,
     ResponseInfo,
 )
 from utilities.namespace import create_namespace, AppNamespaces
@@ -50,7 +50,7 @@ class DataSourceById(PsycopgResource):
     Provides methods for retrieving and updating data source details.
     """
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_data_source,
         auth_info=GET_AUTH_INFO,
         schema_config=SchemaConfigs.DATA_SOURCES_GET_BY_ID,
@@ -59,7 +59,8 @@ class DataSourceById(PsycopgResource):
         ),
         description="Get details of a specific data source by its ID.",
     )
-    def get(self, access_info: AccessInfo, resource_id: str) -> Response:
+    @limiter.limit("50/minute;250/hour")
+    def get(self, access_info: AccessInfoPrimary, resource_id: str) -> Response:
         """
         Retrieves details of a specific data source by its ID.
 
@@ -77,7 +78,7 @@ class DataSourceById(PsycopgResource):
             ),
         )
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_data_source,
         auth_info=WRITE_ONLY_AUTH_INFO,
         schema_config=SchemaConfigs.DATA_SOURCES_PUT,
@@ -86,7 +87,7 @@ class DataSourceById(PsycopgResource):
         ),
         description="Update details of a specific data source by its ID.",
     )
-    def put(self, access_info: AccessInfo, resource_id: str) -> Response:
+    def put(self, access_info: AccessInfoPrimary, resource_id: str) -> Response:
         """
         Updates a data source by its ID based on the provided JSON payload.
 
@@ -109,11 +110,13 @@ class DataSourceById(PsycopgResource):
     @endpoint_info(
         namespace=namespace_data_source,
         auth_info=WRITE_ONLY_AUTH_INFO,
-        responses=create_response_dictionary(
+        response_info=ResponseInfo(
             success_message="Data source successfully deleted.",
         ),
+        description="Delete a data source by its ID.",
+        schema_config=SchemaConfigs.DATA_SOURCES_BY_ID_DELETE,
     )
-    def delete(self, access_info: AccessInfo, resource_id: str) -> Response:
+    def delete(self, access_info: AccessInfoPrimary, resource_id: str) -> Response:
         """
         Deletes a data source by its ID.
 
@@ -137,7 +140,7 @@ class DataSources(PsycopgResource):
     Provides methods for retrieving all data sources and adding new ones.
     """
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_data_source,
         auth_info=GET_AUTH_INFO,
         schema_config=SchemaConfigs.DATA_SOURCES_GET_MANY,
@@ -146,7 +149,7 @@ class DataSources(PsycopgResource):
         ),
         description="Retrieves all data sources.",
     )
-    def get(self, access_info: AccessInfo) -> Response:
+    def get(self, access_info: AccessInfoPrimary) -> Response:
         """
         Retrieves all data sources. The data sources endpoint returns all approved rows in the corresponding Data
         Sources database table.
@@ -163,16 +166,16 @@ class DataSources(PsycopgResource):
             access_info=access_info,
         )
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_data_source,
-        auth_info=WRITE_ONLY_AUTH_INFO,
+        auth_info=STANDARD_JWT_AUTH_INFO,
         schema_config=SchemaConfigs.DATA_SOURCES_POST,
         response_info=ResponseInfo(
             success_message="Data source successfully added.",
         ),
         description="Adds a new data source.",
     )
-    def post(self, access_info: AccessInfo) -> Response:
+    def post(self, access_info: AccessInfoPrimary) -> Response:
         """
         Adds a new data source based on the provided JSON payload.
 
@@ -185,38 +188,6 @@ class DataSources(PsycopgResource):
             access_info=access_info,
         )
 
-    # This endpoint no longer works because of the other data source endpoint
-    # It is interpreted as another data source id
-    # But we have not yet decided whether to modify or remove it entirely
-
-
-# @namespace_data_source.route("/data-sources-map")
-# class DataSourcesMap(PsycopgResource):
-#     """
-#     A resource for managing collections of data sources for mapping.
-#     Provides a method for retrieving all data sources.
-#     """
-#
-#     @handle_exceptions
-#     @authentication_required(
-#         allowed_access_methods=[AccessTypeEnum.API_KEY],
-#     )
-#     @namespace_data_source.response(200, "Success", models.get_many_response_model)
-#     @namespace_data_source.response(500, "Internal server error")
-#     @namespace_data_source.response(400, "Bad request; missing or bad API key")
-#     @namespace_data_source.response(403, "Forbidden; invalid API key")
-#     @namespace_data_source.doc(
-#         description="Retrieves location-relevant columns for data sources.",
-#     )
-#     @namespace_data_source.expect(authorization_api_parser)
-#     def get(self) -> Response:
-#         """
-#         Retrieves location relevant columns for data sources.
-#
-#         Returns:
-#         - A dictionary containing the count of data sources and their details.
-#         """
-#         return self.run_endpoint(get_data_sources_for_map_wrapper)
 
 # region Related Agencies
 
@@ -224,7 +195,7 @@ class DataSources(PsycopgResource):
 @namespace_data_source.route("/<resource_id>/related-agencies")
 class DataSourcesRelatedAgencies(PsycopgResource):
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_data_source,
         auth_info=GET_AUTH_INFO,
         schema_config=SchemaConfigs.DATA_SOURCES_RELATED_AGENCIES_GET,
@@ -233,7 +204,7 @@ class DataSourcesRelatedAgencies(PsycopgResource):
         ),
         description="Get related agencies to a data source",
     )
-    def get(self, resource_id: str, access_info: AccessInfo) -> Response:
+    def get(self, resource_id: str, access_info: AccessInfoPrimary) -> Response:
         """
         Get related agencies to a data source.
         """
@@ -246,7 +217,7 @@ class DataSourcesRelatedAgencies(PsycopgResource):
 @namespace_data_source.route("/<resource_id>/related-agencies/<agency_id>")
 class DataSourcesRelatedAgenciesById(PsycopgResource):
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_data_source,
         auth_info=WRITE_ONLY_AUTH_INFO,
         schema_config=SchemaConfigs.DATA_SOURCES_RELATED_AGENCIES_POST,
@@ -256,7 +227,7 @@ class DataSourcesRelatedAgenciesById(PsycopgResource):
         description="Mark a data source as related to a data request",
     )
     def post(
-        self, resource_id: str, agency_id: str, access_info: AccessInfo
+        self, resource_id: str, agency_id: str, access_info: AccessInfoPrimary
     ) -> Response:
         """
         Mark a data source as related to a data request
@@ -267,7 +238,7 @@ class DataSourcesRelatedAgenciesById(PsycopgResource):
             access_info=access_info,
         )
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_data_source,
         auth_info=WRITE_ONLY_AUTH_INFO,
         schema_config=SchemaConfigs.DATA_SOURCES_RELATED_AGENCIES_DELETE,
@@ -277,7 +248,7 @@ class DataSourcesRelatedAgenciesById(PsycopgResource):
         description="Remove an association of a data source with a data request",
     )
     def delete(
-        self, resource_id: str, agency_id: str, access_info: AccessInfo
+        self, resource_id: str, agency_id: str, access_info: AccessInfoPrimary
     ) -> Response:
         """
         Remove an association of a data source with a data request

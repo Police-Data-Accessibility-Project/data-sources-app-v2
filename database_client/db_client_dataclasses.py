@@ -2,6 +2,7 @@ import enum
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
+from pydantic import BaseModel
 from sqlalchemy.sql.expression import UnaryExpression
 from sqlalchemy.schema import Column
 from sqlalchemy.sql.expression import asc, desc, BinaryExpression
@@ -16,8 +17,7 @@ ORDER_BY_REFERENCE = {
 }
 
 
-@dataclass
-class OrderByParameters:
+class OrderByParameters(BaseModel):
     """
     Contains parameters for an order_by clause
     """
@@ -64,11 +64,22 @@ class WhereMapping:
         :param relation:
         :return: BinaryExpression. Example: Agency.municipality == "Pittsburgh"
         """
+        if isinstance(self.value, list):
+            return self.build_where_clause_in_list(relation)
         relation_reference = SQL_ALCHEMY_TABLE_REFERENCE[relation]
         if self.eq is True:
             return getattr(relation_reference, self.column) == self.value
         elif self.eq is False:
             return getattr(relation_reference, self.column) != self.value
+
+    def build_where_clause_in_list(self, relation: str) -> BinaryExpression:
+        """Creates a SQLAlchemy BinaryExpression for queries.
+
+        :param relation:
+        :return: BinaryExpression. Example: Agency.municipality == "Pittsburgh"
+        """
+        relation_reference = SQL_ALCHEMY_TABLE_REFERENCE[relation]
+        return getattr(relation_reference, self.column).in_(self.value)
 
     @staticmethod
     def from_dict(d: dict) -> list["WhereMapping"]:

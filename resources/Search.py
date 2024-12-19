@@ -2,10 +2,8 @@ from flask import Response
 
 from middleware.access_logic import (
     GET_AUTH_INFO,
-    WRITE_ONLY_AUTH_INFO,
     STANDARD_JWT_AUTH_INFO,
-    AccessInfo,
-    NO_AUTH_INFO,
+    AccessInfoPrimary,
 )
 from middleware.primary_resource_logic.search_logic import (
     search_wrapper,
@@ -13,22 +11,14 @@ from middleware.primary_resource_logic.search_logic import (
     delete_followed_search,
     create_followed_search,
 )
-from middleware.schema_and_dto_logic.primary_resource_schemas.search_schemas import (
-    SearchRequestSchema,
-    SearchRequests,
-)
-from middleware.decorators import api_key_required, endpoint_info_2
-from resources.PsycopgResource import PsycopgResource, handle_exceptions
+
+from middleware.decorators import endpoint_info
+from resources.PsycopgResource import PsycopgResource
 from resources.endpoint_schema_config import SchemaConfigs
 from resources.resource_helpers import (
-    add_api_key_header_arg,
-    create_search_model,
     ResponseInfo,
 )
-from middleware.schema_and_dto_logic.dynamic_logic.dynamic_schema_documentation_construction import (
-    get_restx_param_documentation,
-)
-from middleware.schema_and_dto_logic.non_dto_dataclasses import SchemaPopulateParameters
+
 from utilities.namespace import create_namespace, AppNamespaces
 
 namespace_search = create_namespace(namespace_attributes=AppNamespaces.SEARCH)
@@ -41,14 +31,14 @@ class Search(PsycopgResource):
     based on user-provided search terms and location.
     """
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_search,
         auth_info=GET_AUTH_INFO,
         schema_config=SchemaConfigs.SEARCH_LOCATION_AND_RECORD_TYPE_GET,
         response_info=ResponseInfo(success_message="Search successful."),
         description="Performs a search using the provided search terms and location.",
     )
-    def get(self, access_info: AccessInfo) -> Response:
+    def get(self, access_info: AccessInfoPrimary) -> Response:
         """
         Performs a search using the provided search terms and location.
 
@@ -74,7 +64,7 @@ class SearchFollow(PsycopgResource):
     A resource for following and unfollowing searches, as well as retrieving followed searches.
     """
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_search,
         auth_info=GET_AUTH_INFO,
         schema_config=SchemaConfigs.SEARCH_FOLLOW_GET,
@@ -83,7 +73,7 @@ class SearchFollow(PsycopgResource):
         ),
         description="Retrieves the searches that the user follows.",
     )
-    def get(self, access_info: AccessInfo):
+    def get(self, access_info: AccessInfoPrimary):
         """
         Retrieves the searches that the user follows.
         :return:
@@ -92,7 +82,7 @@ class SearchFollow(PsycopgResource):
             wrapper_function=get_followed_searches, access_info=access_info
         )
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_search,
         auth_info=STANDARD_JWT_AUTH_INFO,
         schema_config=SchemaConfigs.SEARCH_FOLLOW_POST,
@@ -101,7 +91,7 @@ class SearchFollow(PsycopgResource):
         ),
         description="Follows a search.",
     )
-    def post(self, access_info: AccessInfo):
+    def post(self, access_info: AccessInfoPrimary):
         """
         Follows a search.
         :return:
@@ -112,7 +102,7 @@ class SearchFollow(PsycopgResource):
             access_info=access_info,
         )
 
-    @endpoint_info_2(
+    @endpoint_info(
         namespace=namespace_search,
         auth_info=STANDARD_JWT_AUTH_INFO,
         schema_config=SchemaConfigs.SEARCH_FOLLOW_DELETE,
@@ -121,7 +111,7 @@ class SearchFollow(PsycopgResource):
         ),
         description="Unfollows a search.",
     )
-    def delete(self, access_info: AccessInfo):
+    def delete(self, access_info: AccessInfoPrimary):
         """
         Unfollows a search.
         :return:

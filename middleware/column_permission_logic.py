@@ -1,13 +1,11 @@
-from dataclasses import dataclass
-from enum import Enum
 from http import HTTPStatus
 from typing import Optional
 
-from flask_restx import abort
+from pydantic import BaseModel, ConfigDict
 
 from database_client.database_client import DatabaseClient
 from database_client.enums import RelationRoleEnum, ColumnPermissionEnum
-from middleware.access_logic import AccessInfo
+from middleware.access_logic import AccessInfoPrimary
 from middleware.custom_dataclasses import DeferredFunction
 from middleware.enums import PermissionsEnum, AccessTypeEnum
 from middleware.flask_response_manager import FlaskResponseManager
@@ -104,7 +102,7 @@ def create_column_permissions_string_table(relation: str):
     return table
 
 
-def get_relation_role(access_info: AccessInfo) -> RelationRoleEnum:
+def get_relation_role(access_info: AccessInfoPrimary) -> RelationRoleEnum:
     if access_info.access_type == AccessTypeEnum.API_KEY:
         return RelationRoleEnum.STANDARD
     if PermissionsEnum.DB_WRITE in access_info.permissions:
@@ -112,15 +110,16 @@ def get_relation_role(access_info: AccessInfo) -> RelationRoleEnum:
     return RelationRoleEnum.STANDARD
 
 
-@dataclass
-class RelationRoleParameters:
+class RelationRoleParameters(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     relation_role_function_with_params: DeferredFunction = DeferredFunction(
         function=get_relation_role,
     )
     relation_role_override: Optional[RelationRoleEnum] = None
 
     def get_relation_role_from_parameters(
-        self, access_info: AccessInfo
+        self, access_info: AccessInfoPrimary
     ) -> RelationRoleEnum:
         if self.relation_role_override is not None:
             return self.relation_role_override
