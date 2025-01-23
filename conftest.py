@@ -23,6 +23,30 @@ from tests.helper_scripts.helper_classes.TestDataCreatorDBClient import (
 dotenv.load_dotenv()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_database():
+    conn_string = get_env_variable("DO_DATABASE_URL")
+    conn_string = conn_string.replace("postgresql", "postgresql+psycopg")
+    engine = create_engine(conn_string)
+    # Base.metadata.drop_all(engine)
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.attributes["connection"] = engine.connect()
+    alembic_cfg.set_main_option("sqlalchemy.url", conn_string)
+    command.upgrade(alembic_cfg, "head")
+    yield
+    try:
+        command.downgrade(alembic_cfg, "base")
+    except Exception as e:
+        with engine.connect() as connection:
+            connection.execute(text("DROP SCHEMA public CASCADE"))
+            connection.execute(text("CREATE SCHEMA public"))
+            connection.commit()
+
+        command.stamp(alembic_cfg, "base")
+        raise e
+    # Base.metadata.create_all(engine)
+
+
 @pytest.fixture(scope="session")
 def monkeysession(request):
     mpatch = MonkeyPatch()
