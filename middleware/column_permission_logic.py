@@ -79,7 +79,12 @@ def create_column_permissions_string_table(relation: str):
     :return:
     """
     db_client = DatabaseClient()
-    db_rows = db_client.get_column_permissions_as_permission_table(relation=relation)
+    try:
+        db_rows = db_client.get_column_permissions_as_permission_table(
+            relation=relation
+        )
+    except Exception:
+        return ""
 
     headers = list(db_rows[0].keys())
 
