@@ -1,14 +1,11 @@
 ![Python Version](https://img.shields.io/badge/python-3.12-blue?style=for-the-badge&logo=python&logoColor=ffdd54)
 
-# data-sources-app-v2
+# data-sources-app-v2 Archive
 
-Development of the next big iteration of the data sources app according to https://github.com/Police-Data-Accessibility-Project/data-sources-app/issues/248
+This fork is no longer deployed anywhere. We have since merged it with main: https://github.com/Police-Data-Accessibility-Project/data-sources-app/pull/635
 
-An API and UI for searching, using, and maintaining Data Sources. 
+This fork is an archive in case we need to revert in the immediate future, plus a handy way to keep track of recent Pull Requests associated with the v2 fork.
 
-#### [Live app](https://data-sources-v2.pdap.io/) deployed from `main`
-#### [Dev app](https://data-sources-v2.pdap.dev/) deployed from `dev`
-#### [API docs](https://docs.pdap.io/api/introduction)
 
 ## Installation
 
